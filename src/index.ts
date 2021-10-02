@@ -73,7 +73,7 @@ export class Sorrygle{
       if(e instanceof Error && e.message.startsWith("#")){
         const [ , index ] = e.message.match(/^#(\d+)/)!;
 
-        e.message += `\n          ↓ here\n${R.data.substr(parseInt(index) - 10, 30)}`;
+        e.message += `\n          ↓ here\n${R.data.substr(Math.max(0, parseInt(index) - 10), 30)}`;
       }
       throw e;
     }
@@ -342,9 +342,11 @@ export class Sorrygle{
           if(!track) throw Error(`#${i} No channel specified`);
           if(!track.repeat) throw Error(`#${i} Please open a repeat`);
           const [ C, repeat ] = assert(/^:\|(\d+)?/, i, 'close-repeat');
+          const count = parseInt(repeat || "1");
 
+          if(isNaN(count) || count < 1) throw Error(`#${i} Malformed repeat: ${repeat}`);
           if(!track.repeat.closed){
-            track.repeat.count = parseInt(repeat || "1");
+            track.repeat.count = count;
             track.repeat.closed = true;
           }
           if(track.repeat.closed){
