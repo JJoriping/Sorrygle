@@ -46,13 +46,17 @@ Now I'm happy 😊.
 import { writeFileSync } from "fs";
 import { Sorrygle } from "sorrygle";
 
-writeFileSync(
-  "./output.mid",
-  Sorrygle.parse("cege[vcc]~~~")
-);
+writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
+```
+or
+```js
+const { writeFileSync } = require("fs");
+const { Sorrygle } = require("sorrygle");
+
+writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
 ```
 3. Open `output.mid`
-3. *Cool and good*.
+4. *Cool and good*.
 
 ## Grammar
 *(Now writing...)*

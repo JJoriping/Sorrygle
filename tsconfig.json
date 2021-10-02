@@ -2,6 +2,8 @@
   "extends": "@tsconfig/node16/tsconfig.json",
 
   "compilerOptions": {
+    "target": "ES3",
+    "downlevelIteration": true,
     "outDir": "dist",
     "experimentalDecorators": true,
     "noImplicitOverride": true,
