@@ -91,12 +91,15 @@ writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
 | `<.c>`           | Staccato              | Play the note shortly (precisely `T8`).
 | `<~c>`           | Fermata               | Play the note lengthy (as configured by *Fermata configuration*).
 | `<!c>`           | Sforzando             | Play the note strongly (in the maximum volume).
+| `<tc>`           | Trill                 | Play the note as a trill (of interval `T16`).
 | `<+cegⓘ>`       | Crescendo             | (1≤ⓘ≤100) Play all notes in the bracket with the increasing volume from the current volume to ⓘ. |
 | `<-gecⓘ>`       | Decrescendo           | (1≤ⓘ≤100) Play all notes in the bracket with the decreasing volume from the current volume to ⓘ. |
 | `\|:`            | Open repeat           | Set the start point of a repetition. Currently this is compulsory for a repetition unlike musical scores due to a technical issue.
 | `:\|ⓘ`          | Close repeat          | (1≤ⓘ) Set the end point of a repetition. You can omit ⓘ if you want to repeat the closed interval just once. | 1 |
+| `/1`             | Prima volta           | Play the following notes only if it's the first time to be played.
+| `/2`             | Seconda volta         | Play the following notes after one repetition, skipping the notes of the corresponding prima volta. Since currently only prima and seconda voltas are supported, you can omit this.
 | `{ⓘceg}`        | Grouping              | Name the set of notes ⓘ.
-| `{=ⓘ}`          | Group reference       | Refer the set ⓘ.
+| `{=ⓘ}`          | Group reference       | Refer the set ⓘ. Repeats are ignored.
 | `=/`             | Head comment          | Ignore the text before this.
 | `/=`             | Tail comment          | Ignore the text after this.
 
@@ -106,11 +109,43 @@ writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
 - `4`: Quarter note
 - `8`: 8th note
 - `16`: 16th note
-- `32`: 32th note
+- `32`: 32nd note
 - `64`: 64th note
 - You can put `t` at the end of each number above for triplets.
 - You can put `d` or `dd` at the front of each number above for (double-)dotted notes.
 - `Tⓘ`: ⓘ-tick-long note. Note that `♩ = T128`.
+
+## Example
+🎵 Wolfgang Amadeus Mozart - Turkish March (first 27 bars)
+```plain
+#1
+1 =/   {1 baGa (o=5)
+2 =/ |:   c~__dcvbc                       e~__feDe
+4 =/      baGabaGa                      } <!^c~~~>a_^c_
+6 =/      [>ga]b_[Fa]_[eg]_[Fa]_          [>ga]b_[Fa]_[eg]_[Fa]_
+8 =/      [>ga]b_[Fa]_[eg]_[DF]_       /1 e~~~(vbaGa)         :|
+10=/ /2   e~~~           |: [ce]_[df]_    [eg]_[eg]_agfe
+13=/      [[<!d~~~>|vb~vg~]][ce]_[df]_    [eg]_[eg]_agfe
+15=/      [vbd]~~~[vac]_[vbd]_            [ce]_[ce]_fedc
+17=/      (v[[<!b~~~>|G~e~]])[vac]_[vbd]_ [ce]_[ce]_fedc
+19=/      (v[bG]~~~)(o=4){=1}             <!^c~~~>a_b_
+24=/      ^c_b_a_G_                       a_e_f_d_
+26=/      c~~~(q=32)(v<tb~~~~~>ab)(q=16)  va~~~               :|
+
+#2(q=8)
+1 =/   {2 __
+2 =/ |:   va[ce][ce][ce]                  va[ce][ce][ce]
+4 =/      va[ce]va[ce]                  } va[ce][ce][ce]
+6 =/      (ve[b^e][b^e][b^e]              e[b^e][b^e][b^e]
+8 =/      e[b^e]vbb                    /1 e~__)               :|
+10=/ /2   ve~            |: __            vccvee
+13=/      g~__                            vccvee
+15=/      g~__                            vvavavcc
+17=/      e~__                            vvavavcc
+19=/      e~{=2}                          vf[vaD][vaD][vaD]
+24=/      (ve[a^e]d[fb]                   c[ea]d[fb]
+26=/      [ea][ea][eG][eG]                [vaa]~)             :|
+```
 
 ## License
 MIT
