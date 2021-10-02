@@ -1,0 +1,16 @@
+{
+  "extends": "@tsconfig/node16/tsconfig.json",
+
+  "compilerOptions": {
+    "outDir": "dist",
+    "experimentalDecorators": true,
+    "noImplicitOverride": true,
+    "declaration": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

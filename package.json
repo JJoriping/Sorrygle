@@ -1,0 +1,33 @@
+{
+  "name": "sorrygle",
+  "version": "1.0.0",
+  "description": "Text-based MIDI writer",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "repository": "https://github.com/JJoriping/Sorrygle.git",
+  "homepage": "https://sorry.daldal.so/sorrygle",
+  "author": "JJoriping <op@jjo.kr>",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "keywords": [
+    "music",
+    "midi",
+    "generator",
+    "mml"
+  ],
+  "files": [
+    "dist/"
+  ],
+  "devDependencies": {
+    "@tsconfig/node16": "^1.0.2",
+    "@types/node": "^16.10.2",
+    "tsc": "^2.0.3",
+    "typescript": "^4.4.3"
+  },
+  "dependencies": {
+    "midi-writer-js": "=2.0.1"
+  }
+}
