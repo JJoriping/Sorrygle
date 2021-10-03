@@ -1,7 +1,7 @@
 {
   "name": "sorrygle",
-  "version": "1.0.4",
-  "description": "Text-based MIDI-writing language and its parser",
+  "version": "1.0.4-b",
+  "description": "Text-based MIDI-writing language and its compiler",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": "https://github.com/JJoriping/Sorrygle.git",

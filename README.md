@@ -1,7 +1,7 @@
 # Sorrygle
-Text-based MIDI-writing language and its parser
+Text-based MIDI-writing language and its compiler
 
-🔗 [Online parser](https://sorry.daldal.so/sorrygle) available in Korean
+🔗 [Web demo](https://sorry.daldal.so/sorrygle) available in Korean
 
 ## Introduction
 I often chat with my friends via Discord.
@@ -42,7 +42,7 @@ Now I'm happy 😊.
 ## Getting Started
 ### CLI
 1. `npm -g install sorrygle`
-2. `sorrygle 'cege[c^c]~~~'`
+2. `sorrygle "cege[c^c]~~~"`
 3. Open `output.mid`
 4. *Cool and good*.
 
