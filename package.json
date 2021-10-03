@@ -1,6 +1,6 @@
 {
   "name": "sorrygle",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Text-based MIDI-writing language and its parser",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,9 +8,15 @@
   "homepage": "https://sorry.daldal.so/sorrygle",
   "author": "JJoriping <op@jjo.kr>",
   "license": "MIT",
+  "bin": {
+    "sorrygle": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w"
+  },
+  "bugs": {
+    "url": "https://github.com/JJoriping/Sorrygle/issues"
   },
   "keywords": [
     "music",

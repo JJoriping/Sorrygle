@@ -3,7 +3,7 @@ Text-based MIDI-writing language and its parser
 
 🔗 [Online parser](https://sorry.daldal.so/sorrygle) available in Korean
 
-## Abstract
+## Introduction
 I often chat with my friends via Discord.
 However, it becomes cumbersome when I want to share a bundle of melody.
 To do so I had to turn on a notation software (e.g., MuseScore) first,
@@ -34,26 +34,33 @@ Then you must calculate the total length of graces and subtract the value from t
 > `(q=8) [>ga]baga`
 
 In addition, even if crescendoes and graces can be exist in MML,
-I couldn't recognize such notations at a glance *(important!)*.
+I couldn't recognize such notations at a glance *(this is important)*.
 That's why I've defined a new language that can be converted into MIDI files.
 
 Now I'm happy 😊.
 
 ## Getting Started
+### CLI
+1. `npm -g install sorrygle`
+2. `sorrygle 'cege[c^c]~~~'`
+3. Open `output.mid`
+4. *Cool and good*.
+
+### Script
 1. `npm install sorrygle`
 2. 
 ```js
 import { writeFileSync } from "fs";
 import { Sorrygle } from "sorrygle";
 
-writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
+writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 ```
 or
 ```js
 const { writeFileSync } = require("fs");
 const { Sorrygle } = require("sorrygle");
 
-writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
+writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 ```
 3. Open `output.mid`
 4. *Cool and good*.
@@ -68,6 +75,7 @@ writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
 |------------------|-----------------------|----------------------------|---------|
 | `((bpm=ⓘ))`     | BPM configuration     | Set the current BPM to ⓘ. | 120 |
 | `((fermata=ⓝ))` | Fermata configuration | Set the length of fermatas to ⓝ. The duration of the note becomes ⓝ times. | 2 |
+| `((time-sig=ⓘ/ⓘ))` | Time signature configuration | Set the time signature to ⓘ/ⓘ. | 4/4 |
 | `#ⓘ`            | Channel declearation  | (1≤ⓘ≤16) Set the current channel for following input. | 1 |
 | `(o=ⓘ)`         | Default octave        | (0≤ⓘ≤8) Set the default octave for following input. | 4 |
 | `(p=ⓘ)`         | Instrument            | (0≤ⓘ≤127) Set the instrument for following input. You can refer to [GM 1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set) for determining the number. Please note that `PC# = ⓘ + 1` since ⓘ starts from zero. | 0 |
@@ -118,8 +126,9 @@ writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
 ## Example
 🎵 Wolfgang Amadeus Mozart - Turkish March (first 27 bars)
 ```plain
+((time-sig=2/4))
 #1
-1 =/   {1 baGa (o=5)
+0 =/      ____                         {1 baGa (o=5)
 2 =/ |:   c~__dcvbc                       e~__feDe
 4 =/      baGabaGa                      } <!^c~~~>a_^c_
 6 =/      [>ga]b_[Fa]_[eg]_[Fa]_          [>ga]b_[Fa]_[eg]_[Fa]_
@@ -133,7 +142,7 @@ writeFileSync("./output.mid", Sorrygle.parse("cege[vcc]~~~"));
 26=/      c~~~(q=32)(v<tb~~~~~>ab)(q=16)  va~~~               :|
 
 #2(q=8)
-1 =/   {2 __
+0 =/      __                           {2 __
 2 =/ |:   va[ce][ce][ce]                  va[ce][ce][ce]
 4 =/      va[ce]va[ce]                  } va[ce][ce][ce]
 6 =/      (ve[b^e][b^e][b^e]              e[b^e][b^e][b^e]

@@ -66,7 +66,7 @@ export class Sorrygle{
   private static readonly TRILL_LENGTH = 16;
   private static readonly INITIAL_GAS = 100000;
 
-  public static parse(data:string):Buffer{
+  public static compile(data:string):Buffer{
     const R = new Sorrygle(data);
     
     try{
@@ -75,8 +75,9 @@ export class Sorrygle{
     }catch(e){
       if(e instanceof Error && e.message.startsWith("#")){
         const [ , index ] = e.message.match(/^#(\d+)/)!;
+        const text = R.data.substr(Math.max(0, parseInt(index) - 10), 30);
 
-        e.message += `\n          ↓ here\n${R.data.substr(Math.max(0, parseInt(index) - 10), 30)}`;
+        e.message += `\n          ↓ here\n${text.replace(/\r?\n/g, " ")}`;
       }
       throw e;
     }
@@ -126,6 +127,7 @@ export class Sorrygle{
   public parse():void{
     const global = {
       bpm: 120,
+      timeSignature: [ 4, 4 ] as [number, number],
       fermataLength: 2
     };
     const chunk = this.data;
@@ -171,10 +173,17 @@ export class Sorrygle{
               case 'bpm':
                 global.bpm = Number(value);
                 for(const v of this.tracks){
-                  if(!v) continue;
                   v.data.setTempo(global.bpm);
                 }
                 break;
+              case 'time-sig':{
+                const [ n, d ] = value.split('/');
+
+                global.timeSignature = [ parseInt(n), parseInt(d) ];
+                for(const v of this.tracks){
+                  v.data.setTimeSignature(...global.timeSignature);
+                }
+              } break;
               case 'fermata':
                 global.fermataLength = Number(value);
                 break;
@@ -242,6 +251,7 @@ export class Sorrygle{
           if(track.position > 0){
             wait.push(`T${track.position}` as any);
           }
+          track.data.setTimeSignature(...global.timeSignature);
           track.data.setTempo(global.bpm);
           this.tracks.push(track);
           i += C.length - 1;
