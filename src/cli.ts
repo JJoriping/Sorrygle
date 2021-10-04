@@ -29,7 +29,7 @@ function main(...args:string[]):void{
       head + " ┐",
       `┌${"─".repeat(head.length - Color.BLUE.length - Color.DEFAULT.length)}┘`,
       `├ To compile from stdin,`,
-      `│ └ ${command} 'cege[vcc]~~~'`,
+      `│ └ ${command} "cege[vcc]~~~"`,
       "|",
       `├ ${g("--file")} To compile from a file,`,
       `│ ├ ${command} --file input.srg`,

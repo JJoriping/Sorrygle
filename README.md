@@ -76,7 +76,7 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `((bpm=ⓘ))`     | BPM configuration     | Set the current BPM to ⓘ. | 120 |
 | `((fermata=ⓝ))` | Fermata configuration | Set the length of fermatas to ⓝ. The duration of the note becomes ⓝ times. | 2 |
 | `((time-sig=ⓘ/ⓘ))` | Time signature configuration | Set the time signature to ⓘ/ⓘ. | 4/4 |
-| `#ⓘ`            | Channel declearation  | (1≤ⓘ≤16) Set the current channel for following input. | 1 |
+| `#ⓘ`            | Channel declaration   | (1≤ⓘ≤16) Set the current channel for following input. | 1 |
 | `(o=ⓘ)`         | Default octave        | (0≤ⓘ≤8) Set the default octave for following input. | 4 |
 | `(p=ⓘ)`         | Instrument            | (0≤ⓘ≤127) Set the instrument for following input. You can refer to [GM 1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set) for determining the number. Please note that `PC# = ⓘ + 1` since ⓘ starts from zero. | 0 |
 | `(q=ⓓ)`         | Quantization          | Set the default note/rest/tie length for following input. | 16 |
@@ -92,8 +92,9 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `vc`             | Octave down           | Play C in one octave lower than the default.
 | `(^ceg)`         | Group octave up       | Play all notes in the bracket in one octave higher than the default.
 | `(vceg)`         | Group octave down     | Play all notes in the bracket in one octave lower than the default.
-| `(3ceg)`         | Triplet               | Set the length of each note to 3/5 of the current quantization.
+| `(3ceg)`         | Triplet               | Set the length of each note to 2/3 of the current quantization.
 | `(5cdefg)`       | Quintuplet            | Set the length of each note to 2/5 of the current quantization.
+| `(scdef)`        | Group sustain pedal   | Same as `(s=127)cdef(s=0)`.
 | `[>ga]b`         | Appoggiatura          | Treat all notes in the bracket as appoggiaturas.
 | `[[c~~~\|efga]]` | Parallelization       | Play all notes sequentially in each section at once.
 | `<.c>`           | Staccato              | Play the note shortly (precisely `T8`).

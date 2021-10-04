@@ -205,7 +205,7 @@ export class Sorrygle{
                 if(value === "?3"){
                   originalQuantization = track.quantization;
                   quantizationCarry = 0;
-                  track.quantization = `T${0.6 * getTickDuration(originalQuantization)}` as any;
+                  track.quantization = `T${2 * getTickDuration(originalQuantization) / 3}` as any;
                 }else if(value === "?5"){
                   originalQuantization = track.quantization;
                   quantizationCarry = 0;
