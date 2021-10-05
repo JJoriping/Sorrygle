@@ -417,7 +417,7 @@ export class Sorrygle{
           break;
         case "|":
           if(n1 !== ":") throw Error(`#${i} Unknown character: ${n1}`);
-          if(track!.repeat) throw Error(`#${i} Incomplete repeat`);
+          if(track?.repeat) throw Error(`#${i} Incomplete repeat`);
           addNote(i, true);
           // 여는 도돌이표
           i++;
@@ -428,7 +428,7 @@ export class Sorrygle{
           };
           break;
         case ":":{
-          if(!track!.repeat) throw Error(`#${i} Please open a repeat`);
+          if(!track?.repeat) throw Error(`#${i} Please open a repeat`);
           addNote(i, true);
           // 닫는 도돌이표
           const [ C, repeat ] = assert(/^:\|(\d+)?/, i, 'close-repeat');
