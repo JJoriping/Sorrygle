@@ -3,6 +3,11 @@ import MIDI = require("midi-writer-js");
 type Table<T> = {
   [key:string]: T
 };
+type GlobalSet = {
+  'bpm': number,
+  'timeSignature': [number, number],
+  'fermataLength': number
+};
 type TrackSet = {
   'id': number,
   'data': MIDI.Track,
@@ -11,6 +16,7 @@ type TrackSet = {
   'velocity': number,
   'transpose': number,
   'position': number,
+  'wait': MIDI.Duration[],
   'repeat'?: {
     'start': number,
     'count': number,
@@ -86,9 +92,6 @@ export class Sorrygle{
     const ref:Table<string> = {};
     let R = data.replace(/(.*)=\/|\/=(.*)/mg, "");
 
-    if(!R.match(/#\d+/)){
-      R = "#1" + R;
-    }
     return R
       .replace(/\{(\d+)([\s\S]+?)\}/g, (_, g1:string, g2:string) => {
         if(g1 in ref) throw Error(`Already declared group: ${g1}`);
@@ -112,6 +115,7 @@ export class Sorrygle{
   }
 
   private readonly data:string;
+  private globalPreset?:GlobalSet;
   private trackPreset?:TrackSet;
   private tracks:TrackSet[];
   private gas:number;
@@ -121,20 +125,40 @@ export class Sorrygle{
     this.tracks = [];
     this.gas = Sorrygle.INITIAL_GAS;
   }
+  private createTrack(id:number):TrackSet{
+    return this.trackPreset
+      ? {
+        ...this.trackPreset,
+        data: new MIDI.Track(),
+        wait: [ ...this.trackPreset.wait ]
+      }
+      : {
+        id,
+        data: new MIDI.Track(),
+        quantization: '16',
+        octave: 4,
+        velocity: 80,
+        transpose: 0,
+        position: 0,
+        wait: []
+      }
+    ;
+  }
+
   public compile():Buffer{
     return Buffer.from(new MIDI.Writer(this.tracks.filter(v => v).map(v => v.data)).buildFile());
   }
   public parse():void{
-    const global = {
+    const global:GlobalSet = {
       bpm: 120,
-      timeSignature: [ 4, 4 ] as [number, number],
-      fermataLength: 2
+      timeSignature: [ 4, 4 ],
+      fermataLength: 2,
+      ...(this.globalPreset || {})
     };
     const chunk = this.data;
     let track:TrackSet|undefined;
     let inChord:'normal'|'grace'|undefined;
     let prevNote:[notes:MIDI.Pitch[], length:MIDI.Duration[]]|undefined;
-    let wait:MIDI.Duration[] = [];
 
     const pendingDiacritics:Array<{
       'type': DiacriticType,
@@ -147,6 +171,77 @@ export class Sorrygle{
     let octaveOffset = 0;
     let originalQuantization:MIDI.Duration|undefined;
     let quantizationCarry = 0;
+    
+    const addNote = (i:number, breakChord?:boolean) => {
+      if(!track){
+        track = this.createTrack(1);
+        if(track.position > 0){
+          track.wait.push(`T${track.position}` as any);
+        }
+        this.tracks.push(track);
+      }
+      if(!prevNote) return;
+      if(inChord){
+        if(breakChord) throw Error(`#${i} Incomplete chord`);
+        else return;
+      }
+      if(track.transpose){
+        prevNote[0] = prevNote[0].map(v => transpose(v));
+        if(pendingGrace) pendingGrace = pendingGrace.map(v => transpose(v));
+      }
+      if(octaveOffset){
+        prevNote[0] = prevNote[0].map(v => {
+          const [ , a, b ] = v.match(Sorrygle.REGEXP_PITCH)!;
+
+          return `${a}${parseInt(b) + octaveOffset}` as any;
+        });
+        octaveOffset = 0;
+      }
+      for(const v of pendingGrace || []){
+        track.position += Sorrygle.GRACE_LENGTH + getTickDuration(track.wait);
+        track.data.addEvent(new MIDI.NoteEvent({
+          pitch: v,
+          duration: `T${Sorrygle.GRACE_LENGTH}` as any,
+          channel: track.id,
+          velocity: track.velocity,
+          wait: track.wait
+        }));
+        prevNote[1].push(`T-${Sorrygle.GRACE_LENGTH}` as any);
+        track.wait = [];
+      }
+      for(let i = 0; i < prevNote[1].length; i++){
+        const v = prevNote[1][i];
+        if(!v.startsWith("T")){
+          continue;
+        }
+        const y = Number(v.slice(1));
+        let x = Math.floor(y);
+
+        quantizationCarry += y - x;
+        if(quantizationCarry >= 1){
+          quantizationCarry--;
+          x++;
+        }
+        prevNote[1][i] = `T${x}` as any;
+      }
+
+      const options:(typeof pendingDiacritics)[number]['notes'][number] = {
+        pitch: prevNote[0],
+        duration: prevNote[1],
+        channel: track.id,
+        velocity: track.velocity,
+        wait: track.wait
+      };
+      if(pendingDiacritics.length){
+        pendingDiacritics[pendingDiacritics.length - 1].notes.push(options);
+      }else{
+        track.position += getTickDuration(options.duration) + getTickDuration(options.wait);
+        track.data.addEvent(new MIDI.NoteEvent(options));
+      }
+      prevNote = undefined;
+      pendingGrace = undefined;
+      track.wait = [];
+    };
 
     main: for(let i = 0; i < chunk.length; i++){
       if(--this.gas <= 0){
@@ -228,29 +323,10 @@ export class Sorrygle{
         case "#":{
           if(track?.repeat) throw Error(`#${i} Incomplete repeat`);
           addNote(i, true);
-          wait = [];
           // 채널 선언
           const [ C, idText ] = assert(/^#(\d+)/, i, 'declare-channel');
-          const id = parseInt(idText);
 
-          track = this.trackPreset
-            ? {
-              ...this.trackPreset,
-              data: new MIDI.Track()
-            }
-            : {
-              id,
-              data: new MIDI.Track(),
-              quantization: '16',
-              octave: 4,
-              velocity: 80,
-              transpose: 0,
-              position: 0
-            }
-          ;
-          if(track.position > 0){
-            wait.push(`T${track.position}` as any);
-          }
+          track = this.createTrack(parseInt(idText));
           track.data.setTimeSignature(...global.timeSignature);
           track.data.setTempo(global.bpm);
           this.tracks.push(track);
@@ -260,7 +336,6 @@ export class Sorrygle{
           addNote(i, true);
           switch(n1){
             case "[":{
-              if(!track) throw Error(`#${i} No channel specified`);
               // 병렬 열기
               const [ C ] = assert(/^\[\[([\s\S]+?)(?=\]\])/, i, 'parallel');
               const list = C.split('|');
@@ -269,9 +344,9 @@ export class Sorrygle{
               for(const v of list.slice(1)){
                 const child = new Sorrygle(v);
 
+                child.globalPreset = global;
                 child.trackPreset = {
-                  ...track,
-                  position: track.position
+                  ...track!
                 };
                 child.parse();
                 this.tracks.push(...child.tracks);
@@ -302,7 +377,6 @@ export class Sorrygle{
           let argsRange:[number, number]|undefined;
 
           addNote(i);
-          if(!track) throw Error(`#${i} No channel specified`);
           // 악상 기호 열기
           switch(n1){
             case "~": type = DiacriticType.FERMATA; break;
@@ -314,7 +388,7 @@ export class Sorrygle{
 
               type = DiacriticType.CRESCENDO;
               [ C, ...args ] = assert(/^<\+[\s\S]+?(\d+)(?=>)/, i, 'diacritic-crescendo');
-              if(track.velocity >= parseInt(args[0])) throw Error(`#${i} Useless crescendo`);
+              if(track!.velocity >= parseInt(args[0])) throw Error(`#${i} Useless crescendo`);
               argsRange = [ i + C.length - args[0].length, i + C.length - 1 ];
             } break;
             case "-":{
@@ -322,7 +396,7 @@ export class Sorrygle{
 
               type = DiacriticType.DECRESCENDO;
               [ C, ...args ] = assert(/^<-[\s\S]+?(\d+)(?=>)/, i, 'diacritic-decrescendo');
-              if(track.velocity <= parseInt(args[0])) throw Error(`#${i} Useless decrescendo`);
+              if(track!.velocity <= parseInt(args[0])) throw Error(`#${i} Useless decrescendo`);
               argsRange = [ i + C.length - args[0].length, i + C.length - 1 ];
             } break;
             default: throw Error(`#${i} Unknown diacritic: ${n1}`);
@@ -343,48 +417,45 @@ export class Sorrygle{
           break;
         case "|":
           if(n1 !== ":") throw Error(`#${i} Unknown character: ${n1}`);
-          if(!track) throw Error(`#${i} No channel specified`);
-          if(track.repeat) throw Error(`#${i} Incomplete repeat`);
+          if(track!.repeat) throw Error(`#${i} Incomplete repeat`);
           addNote(i, true);
           // 여는 도돌이표
           i++;
-          track.repeat = {
+          track!.repeat = {
             start: i,
             count: 1,
             current: 0
           };
           break;
         case ":":{
-          if(!track) throw Error(`#${i} No channel specified`);
-          if(!track.repeat) throw Error(`#${i} Please open a repeat`);
+          if(!track!.repeat) throw Error(`#${i} Please open a repeat`);
           addNote(i, true);
           // 닫는 도돌이표
           const [ C, repeat ] = assert(/^:\|(\d+)?/, i, 'close-repeat');
           const count = parseInt(repeat || "1");
 
           if(isNaN(count) || count < 1) throw Error(`#${i} Malformed repeat: ${repeat}`);
-          if(!track.repeat.closed){
-            track.repeat.count = count;
-            track.repeat.closed = true;
+          if(!track!.repeat.closed){
+            track!.repeat.count = count;
+            track!.repeat.closed = true;
           }
-          if(track.repeat.current >= track.repeat.count){
-            delete track.repeat;
+          if(track!.repeat.current >= track!.repeat.count){
+            delete track!.repeat;
             i += C.length - 1;
           }else{
-            track.repeat.current++;
-            i = track.repeat.start;
+            track!.repeat.current++;
+            i = track!.repeat.start;
           }
         } break;
         case "/":
-          if(!track) throw Error(`#${i} No channel specified`);
           addNote(i, true);
           switch(n1){
             case "1":
-              if(!track.repeat || track.repeat.count > 1) throw Error(`#${i} Unexpected prima volta`);
-              if(track.repeat.current === 1){
+              if(!track!.repeat || track!.repeat.count > 1) throw Error(`#${i} Unexpected prima volta`);
+              if(track!.repeat.current === 1){
                 const [ C ] = assert(/^\/1[\s\S]+?:\|\s*(\/2)?/, i, 'repeat');
 
-                delete track.repeat;
+                delete track!.repeat;
                 i += C.length - 1;
               }else{
                 i++;
@@ -395,9 +466,8 @@ export class Sorrygle{
           break;
         case "c": case "d": case "e": case "f": case "g": case "a": case "b":
         case "C": case "D": case "F": case "G": case "A":{
-          if(!track) throw Error(`#${i} No channel specified (note)`);
           addNote(i);
-          let octave = track.octave;
+          let octave = track!.octave;
           let key:MIDI.Pitch;
 
           if(inChord){
@@ -410,7 +480,7 @@ export class Sorrygle{
               if(prevNote) prevNote[0].push(key);
               else prevNote = [
                 [ key ],
-                [ track.quantization ]
+                [ track!.quantization ]
               ];
               break;
             case 'grace':
@@ -419,7 +489,7 @@ export class Sorrygle{
               break;
             default: prevNote = [
               [ key ],
-              [ track.quantization ]
+              [ track!.quantization ]
             ];
           }
         } break;
@@ -436,8 +506,7 @@ export class Sorrygle{
         case "_":
           // 쉼표
           addNote(i, true);
-          if(!track) throw Error(`#${i} No channel specified`);
-          wait.push(track.quantization);
+          track!.wait.push(track!.quantization);
           break;
         case "~":
           // 길이 연장
@@ -456,70 +525,6 @@ export class Sorrygle{
 
       if(!R) throw Error(`#${i} Malformed (${name}) (${chunk.slice(0, 10)}...)`);
       return R;
-    }
-    function addNote(i:number, breakChord?:boolean):void{
-      if(!prevNote) return;
-      if(inChord){
-        if(breakChord) throw Error(`#${i} Incomplete chord`);
-        else return;
-      }
-      if(!track) throw Error(`#${i} No channel specified`);
-      if(track.transpose){
-        prevNote[0] = prevNote[0].map(v => transpose(v));
-        if(pendingGrace) pendingGrace = pendingGrace.map(v => transpose(v));
-      }
-      if(octaveOffset){
-        prevNote[0] = prevNote[0].map(v => {
-          const [ , a, b ] = v.match(Sorrygle.REGEXP_PITCH)!;
-
-          return `${a}${parseInt(b) + octaveOffset}` as any;
-        });
-        octaveOffset = 0;
-      }
-      for(const v of pendingGrace || []){
-        track.position += Sorrygle.GRACE_LENGTH + getTickDuration(wait);
-        track.data.addEvent(new MIDI.NoteEvent({
-          pitch: v,
-          duration: `T${Sorrygle.GRACE_LENGTH}` as any,
-          channel: track.id,
-          velocity: track.velocity,
-          wait
-        }));
-        prevNote[1].push(`T-${Sorrygle.GRACE_LENGTH}` as any);
-        wait = [];
-      }
-      for(let i = 0; i < prevNote[1].length; i++){
-        const v = prevNote[1][i];
-        if(!v.startsWith("T")){
-          continue;
-        }
-        const y = Number(v.slice(1));
-        let x = Math.floor(y);
-
-        quantizationCarry += y - x;
-        if(quantizationCarry >= 1){
-          quantizationCarry--;
-          x++;
-        }
-        prevNote[1][i] = `T${x}` as any;
-      }
-
-      const options:(typeof pendingDiacritics)[number]['notes'][number] = {
-        pitch: prevNote[0],
-        duration: prevNote[1],
-        channel: track.id,
-        velocity: track.velocity,
-        wait
-      };
-      if(pendingDiacritics.length){
-        pendingDiacritics[pendingDiacritics.length - 1].notes.push(options);
-      }else{
-        track.position += getTickDuration(options.duration) + getTickDuration(options.wait);
-        track.data.addEvent(new MIDI.NoteEvent(options));
-      }
-      prevNote = undefined;
-      pendingGrace = undefined;
-      wait = [];
     }
     function popDiacritic():void{
       const diacritic = pendingDiacritics.pop();
@@ -586,7 +591,7 @@ export class Sorrygle{
         }
       });
       if(internalWait.length){
-        wait.push(...internalWait);
+        track!.wait.push(...internalWait);
       }
       track!.velocity = newVelocity;
     }
