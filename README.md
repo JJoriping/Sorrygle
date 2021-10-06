@@ -104,6 +104,7 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `<tc>`           | Trill                 | Play the note as a trill (of interval `T16`).
 | `<+cegⓘ>`       | Crescendo             | (1≤ⓘ≤100) Play all notes in the bracket with the increasing volume from the current volume to ⓘ. |
 | `<-gecⓘ>`       | Decrescendo           | (1≤ⓘ≤100) Play all notes in the bracket with the decreasing volume from the current volume to ⓘ. |
+| `<pⓝc~ⓝ~~ⓝ>`  | Pitch bend            | (-1≤ⓝ≤1) Play all notes in the bracket with the plan modifying the pitch bend linearly. |
 | `\|:`            | Open repeat           | Set the start point of a repetition. Currently this is compulsory for a repetition unlike musical scores due to a technical issue.
 | `:\|ⓘ`          | Close repeat          | (1≤ⓘ) Set the end point of a repetition. You can omit ⓘ if you want to repeat the closed interval just once. | 1 |
 | `/1`             | Prima volta           | Play the following notes only if it's the first time to be played.

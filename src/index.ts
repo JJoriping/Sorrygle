@@ -9,6 +9,8 @@ type GlobalSet = {
 type TrackSet = {
   'id': number,
   'data': MIDI.Track,
+  'pitchBendData'?: MIDI.Track,
+  'pitchBendPosition'?: number,
   'octave': number,
   'quantization': MIDI.Duration,
   'velocity': number,
@@ -29,7 +31,8 @@ enum DiacriticType{
   SFORZANDO,
   TRILL,
   CRESCENDO,
-  DECRESCENDO
+  DECRESCENDO,
+  PITCH_BEND
 }
 {
   const _ProgramChangeEvent = MIDI.ProgramChangeEvent;
@@ -71,6 +74,7 @@ export class Sorrygle{
     '🥁': 118
   };
   private static readonly REGEXP_PITCH = /^([A-G]#?)(\d+)$/;
+  private static readonly RESOLUTION = 8;
   private static readonly GRACE_LENGTH = 8;
   private static readonly TRILL_LENGTH = 16;
   private static readonly INITIAL_GAS = 100000;
@@ -154,10 +158,13 @@ export class Sorrygle{
   }
 
   public compile():Buffer{
-    return Buffer.from(new MIDI.Writer([
-      this.configurationTrack,
-      ...this.tracks
-    ].filter(v => v).map(v => v.data)).buildFile());
+    const data = [ this.configurationTrack.data ];
+
+    for(const v of this.tracks){
+      if(v.pitchBendData) data.push(v.pitchBendData);
+      data.push(v.data);
+    }
+    return Buffer.from(new MIDI.Writer(data).buildFile());
   }
   public parse():void{
     const global:GlobalSet = {
@@ -251,6 +258,12 @@ export class Sorrygle{
       pendingGrace = undefined;
       track.wait = [];
     };
+    const getGhostNote = (length:number) => new MIDI.NoteEvent({
+      pitch: [ "C1" ],
+      duration: [ "T0" as any ],
+      velocity: 0,
+      wait: [ `T${length}` as any ]
+    });
 
     main: for(let i = 0; i < chunk.length; i++){
       if(--this.gas <= 0){
@@ -272,22 +285,16 @@ export class Sorrygle{
           if(n1 === "("){
             // 전역 설정
             const [ C, key, value ] = assert(/^\(\((.+?)=(.+?)\)\)/, i, 'set-global-variable');
-            const getGhostNote = () => new MIDI.NoteEvent({
-              pitch: [ "C1" ],
-              duration: [ "T0" as any ],
-              velocity: 0,
-              wait: [ `T${track!.position}` as any ]
-            });
             switch(key){
               case 'bpm':
-                this.configurationTrack.data.addEvent(getGhostNote());
+                this.configurationTrack.data.addEvent(getGhostNote(track!.position - this.configurationTrack.position));
                 this.configurationTrack.data.setTempo(Number(value));
                 this.configurationTrack.position = track!.position;
                 break;
               case 'time-sig':{
                 const [ n, d ] = value.split('/');
 
-                this.configurationTrack.data.addEvent(getGhostNote());
+                this.configurationTrack.data.addEvent(getGhostNote(track!.position - this.configurationTrack.position));
                 this.configurationTrack.data.setTimeSignature(parseInt(n), parseInt(d));
                 this.configurationTrack.position = track!.position;
               } break;
@@ -411,6 +418,10 @@ export class Sorrygle{
               if(track!.velocity <= parseInt(args[0])) throw Error(`#${i} Useless decrescendo`);
               argsRange = [ i + C.length - args[0].length, i + C.length - 1 ];
             } break;
+            case "p":
+              type = DiacriticType.PITCH_BEND;
+              args = [];
+              break;
             default: throw Error(`#${i} Unknown diacritic: ${n1}`);
           }
           pendingDiacritics.push({
@@ -425,7 +436,7 @@ export class Sorrygle{
           addNote(i);
           // 악상 기호 닫기
           if(!pendingDiacritics.length) throw Error(`#${i} No diacritics opened`);
-          popDiacritic();
+          popDiacritic(i);
           break;
         case "|":
           if(n1 !== ":") throw Error(`#${i} Unknown character: ${n1}`);
@@ -529,7 +540,27 @@ export class Sorrygle{
           if(!prevNote) throw Error(`#${i} No previous note (long)`);
           prevNote[1].push(track.quantization);
           break;
-        default:
+        case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "8": case "9":
+        case "-": case ".":{
+          // 숫자 구성 요소
+          const topDiacritic = pendingDiacritics[pendingDiacritics.length - 1];
+          
+          if(topDiacritic.type === DiacriticType.PITCH_BEND){
+            const [ C ] = assert(/^[-.0-9]+/, i, 'pitch-bend-frame');
+            const value = parseFloat(C);
+            if(isNaN(value) || value < -1 || value > 1) throw Error(`#${i} Malformed pitch bend value: ${C}`);
+            const samples = topDiacritic.notes.map(v => [ v.duration, v.wait ]);
+
+            samples.push([ track!.wait ]);
+            if(prevNote) samples.push([ prevNote[1] ]);
+            topDiacritic.args!.push([
+              track!.position + getTickDuration(samples.flat(2)),
+              value
+            ]);
+            i += C.length - 1;
+            break;
+          }
+        } default:
           if(c.trim()) throw Error(`#${i} Unknown character: ${c}`);
       }
     }
@@ -541,7 +572,7 @@ export class Sorrygle{
       if(!R) throw Error(`#${i} Malformed (${name}) (${chunk.slice(0, 10)}...)`);
       return R;
     }
-    function popDiacritic():void{
+    function popDiacritic(index:number):void{
       const diacritic = pendingDiacritics.pop();
       let internalWait:MIDI.Duration[] = [];
       let newVelocity = track!.velocity;
@@ -593,10 +624,43 @@ export class Sorrygle{
           } break;
           case DiacriticType.CRESCENDO:
           case DiacriticType.DECRESCENDO:
-            if(!diacritic.args) throw Error(`#${i} Malformed diacritic`);
+            if(!diacritic.args) throw Error(`#${index} Malformed diacritic`);
             v.velocity = track!.velocity + i / (my.length - 1) * (diacritic.args[0] - track!.velocity);
             newVelocity = v.velocity;
             break;
+          case DiacriticType.PITCH_BEND: if(!i){
+            // 안에 노트가 얼마나 있든 한 번만 처리하면 된다.
+            if(!diacritic.args || diacritic.args.length < 1) throw Error(`#${index} Malformed pitch bend`);
+            const data = track!.pitchBendData || new MIDI.Track();
+            const frames:[number, number][] = diacritic.args;
+            let prevPosition = track!.pitchBendPosition || 0;
+            const setBend = (position:number, value:number) => {
+              data.addEvent(getGhostNote(position - prevPosition));
+              data.addEvent(new (MIDI as any)['PitchBendEvent']({
+                channel: track!.id - 1,
+                bend: value
+              }));
+              prevPosition = position;
+            };
+            setBend(...frames[0]);
+            for(let j = 1; j < frames.length; j++){
+              const prev = frames[j - 1];
+              const curr = frames[j];
+              const gap = curr[1] - prev[1];
+              
+              for(let k = prev[0]; k < curr[0]; k += Sorrygle.RESOLUTION){
+                const rate = (k - prev[0]) / (curr[0] - prev[0]);
+                
+                setBend(k, prev[1] + gap * rate);
+              }
+              setBend(...curr);
+            }
+            setBend(track!.position + getTickDuration(
+              diacritic.notes.map(v => [ v.duration, v.wait ]).flat(2)
+            ), 0);
+            track!.pitchBendData = data;
+            track!.pitchBendPosition = prevPosition;
+          } break;
         }
         if(pendingDiacritics.length){
           pendingDiacritics[pendingDiacritics.length - 1].notes.push(...notes);

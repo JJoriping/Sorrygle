@@ -1,2 +1,2 @@
-#1(q=8) ((bpm=60)) cdef  ((bpm=120)) gab^c ((time-sig=2/4)) (^dc)ba g~~~
-#2(q=8)            ^cbag             fedc  ((time-sig=2/4)) (vbaga  g~~~)
+#1(q=8) cdcdcdcd    ((bpm=60)) cdef  ((bpm=120)) gab^c ((time-sig=2/4)) (^dc)ba g~~~
+#2(q=8) (vcdcdcdcd)            ^cbag             fedc  ((time-sig=2/4)) (vbaga  g~~~)
