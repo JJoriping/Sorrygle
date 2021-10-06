@@ -4,8 +4,6 @@ type Table<T> = {
   [key:string]: T
 };
 type GlobalSet = {
-  'bpm': number,
-  'timeSignature': [number, number],
   'fermataLength': number
 };
 type TrackSet = {
@@ -117,11 +115,13 @@ export class Sorrygle{
   private readonly data:string;
   private globalPreset?:GlobalSet;
   private trackPreset?:TrackSet;
+  private configurationTrack:TrackSet;
   private tracks:TrackSet[];
   private gas:number;
 
   constructor(data:string){
     this.data = Sorrygle.preprocess(data);
+    this.configurationTrack = this.createTrack(0);
     this.tracks = [];
     this.gas = Sorrygle.INITIAL_GAS;
   }
@@ -146,12 +146,13 @@ export class Sorrygle{
   }
 
   public compile():Buffer{
-    return Buffer.from(new MIDI.Writer(this.tracks.filter(v => v).map(v => v.data)).buildFile());
+    return Buffer.from(new MIDI.Writer([
+      this.configurationTrack,
+      ...this.tracks
+    ].filter(v => v).map(v => v.data)).buildFile());
   }
   public parse():void{
     const global:GlobalSet = {
-      bpm: 120,
-      timeSignature: [ 4, 4 ],
       fermataLength: 2,
       ...(this.globalPreset || {})
     };
@@ -263,21 +264,24 @@ export class Sorrygle{
           if(n1 === "("){
             // 전역 설정
             const [ C, key, value ] = assert(/^\(\((.+?)=(.+?)\)\)/, i, 'set-global-variable');
-
+            const getGhostNote = () => new MIDI.NoteEvent({
+              pitch: [ "C1" ],
+              duration: [ "T0" as any ],
+              velocity: 0,
+              wait: [ `T${track!.position}` as any ]
+            });
             switch(key){
               case 'bpm':
-                global.bpm = Number(value);
-                for(const v of this.tracks){
-                  v.data.setTempo(global.bpm);
-                }
+                this.configurationTrack.data.addEvent(getGhostNote());
+                this.configurationTrack.data.setTempo(Number(value));
+                this.configurationTrack.position = track!.position;
                 break;
               case 'time-sig':{
                 const [ n, d ] = value.split('/');
 
-                global.timeSignature = [ parseInt(n), parseInt(d) ];
-                for(const v of this.tracks){
-                  v.data.setTimeSignature(...global.timeSignature);
-                }
+                this.configurationTrack.data.addEvent(getGhostNote());
+                this.configurationTrack.data.setTimeSignature(parseInt(n), parseInt(d));
+                this.configurationTrack.position = track!.position;
               } break;
               case 'fermata':
                 global.fermataLength = Number(value);
@@ -325,10 +329,10 @@ export class Sorrygle{
           addNote(i, true);
           // 채널 선언
           const [ C, idText ] = assert(/^#(\d+)/, i, 'declare-channel');
+          const id = parseInt(idText);
 
-          track = this.createTrack(parseInt(idText));
-          track.data.setTimeSignature(...global.timeSignature);
-          track.data.setTempo(global.bpm);
+          if(id < 1 || id > 16) throw Error(`#${i} Invalid channel ID: ${id}`);
+          track = this.createTrack(id);
           this.tracks.push(track);
           i += C.length - 1;
         } break;
