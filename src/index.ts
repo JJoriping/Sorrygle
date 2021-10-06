@@ -87,27 +87,41 @@ export class Sorrygle{
       return R.compile();
     }catch(e){
       if(e instanceof Error && e.message.startsWith("#")){
-        const [ , index ] = e.message.match(/^#(\d+)/)!;
-        const text = R.data.substr(Math.max(0, parseInt(index) - 10), 30);
+        const [ , indexText ] = e.message.match(/^#(\d+)/)!;
+        const index = parseInt(indexText);
+        const text = R.data.substr(Math.max(0, index - 10), 30);
 
-        e.message += `\n          ↓ here\n${text.replace(/\r?\n/g, " ")}`;
+        e.message += `\n${" ".repeat(Math.min(10, index))}↓ here\n${text.replace(/\r?\n/g, " ")}`;
       }
       throw e;
     }
   }
   private static preprocess(data:string):string{
+    const validNotes = new RegExp(`[${Object.keys(Sorrygle.NOTES).join('')}]`, "g");
     const ref:Table<string> = {};
+    const udr:Table<string> = {};
     let R = data.replace(/(.*)=\/|\/=(.*)/mg, "");
 
     return R
-      .replace(/\{(\d+)([\s\S]+?)\}/g, (_, g1:string, g2:string) => {
+      .replace(/\{\{([^\}]+)\}\}\s*\{([\s\S]+?)\}/g, (_, g1:string, g2:string) => {
+        // UDR 선언
+        if(g1 in udr) throw Error(`Already declared range: ${g1}`);
+        udr[g1] = g2.trim();
+        return "";
+      }).replace(/\{\{([^\}]+)\}\}\s*\(([\s\S]*?)\)/g, (_, g1:string, g2:string) => {
+        if(!udr[g1]) throw Error(`No such range: ${g1}`);
+        return g2.replace(validNotes, h => udr[g1].replace(/x/g, h));
+      }).replace(/\{(\d+)([\s\S]+?)\}/g, (_, g1:string, g2:string) => {
+        // 그룹 선언
         if(g1 in ref) throw Error(`Already declared group: ${g1}`);
         ref[g1] = g2;
         return g2;
       }).replace(/\{=(\d+)\}/g, (_, g1:string) => {
+        // 그룹 참조
         if(!ref[g1]) throw Error(`No such group: ${g1}`);
         return ref[g1].replace(/\|:|:\|\d*|\/\d+/g, "");
       }).replace(/\(p=(\D+?)\)/g, (_, g1:string) => (
+        // 이모지 악기
         `(p=${Sorrygle.INSTRUMENTS[g1] || g1})`
       )).replace(/\(s(?!=)([\s\S]+?)\)/g, (_, g1:string) => (
         // 서스테인 페달
@@ -118,10 +132,33 @@ export class Sorrygle{
       )).replace(/\(v(?!=)([\s\S]+?)\)/g, (_, g1:string) => (
         // 그룹 옥타브 내리기
         g1.replace(/[A-G]/gi, "v$&")
-      )).replace(/\((3|5)([\s\S]+?)\)/g, (_, g1:string, g2:string) => (
+      )).replace(/\((3|5|7)([\s\S]+?)\)/g, (_, g1:string, g2:string) => (
+        // 잇단음표
         `(q=?${g1})${g2}(q=?)`
       ))
     ;
+  }
+  private static transpose(v:MIDI.Pitch, amount:number, forTrill?:boolean):MIDI.Pitch{
+    if(!amount && !forTrill){
+      return v;
+    }
+    const [ , a, b ] = v.match(Sorrygle.REGEXP_PITCH)!;
+    const sequence = Sorrygle.NOTE_SEQUENCES.indexOf(a as any);
+    let newSequence = sequence + (forTrill
+      ? a === "E" || a === "B" || a.endsWith("#") ? 1 : 2
+      : amount
+    );
+    let carry = 0;
+
+    if(newSequence >= Sorrygle.NOTE_SEQUENCES.length){
+      carry++;
+      newSequence -= Sorrygle.NOTE_SEQUENCES.length;
+    }
+    if(newSequence < 0){
+      carry--;
+      newSequence += Sorrygle.NOTE_SEQUENCES.length;
+    }
+    return `${Sorrygle.NOTE_SEQUENCES[newSequence]}${parseInt(b) + carry}` as any;
   }
 
   private readonly data:string;
@@ -202,8 +239,8 @@ export class Sorrygle{
         else return;
       }
       if(track.transpose){
-        prevNote[0] = prevNote[0].map(v => transpose(v));
-        if(pendingGrace) pendingGrace = pendingGrace.map(v => transpose(v));
+        prevNote[0] = prevNote[0].map(v => Sorrygle.transpose(v, track!.transpose));
+        if(pendingGrace) pendingGrace = pendingGrace.map(v => Sorrygle.transpose(v, track!.transpose));
       }
       if(octaveOffset){
         prevNote[0] = prevNote[0].map(v => {
@@ -316,6 +353,7 @@ export class Sorrygle{
                 instrument: parseInt(value)
               } as any)); break;
               case 'q':
+                // 잇단음표
                 if(value === "?3"){
                   originalQuantization = track.quantization;
                   quantizationCarry = 0;
@@ -324,6 +362,10 @@ export class Sorrygle{
                   originalQuantization = track.quantization;
                   quantizationCarry = 0;
                   track.quantization = `T${0.4 * getTickDuration(originalQuantization)}` as any;
+                }else if(value === "?7"){
+                  originalQuantization = track.quantization;
+                  quantizationCarry = 0;
+                  track.quantization = `T${2 * getTickDuration(originalQuantization) / 7}` as any;
                 }else if(value === "?"){
                   if(!originalQuantization) throw Error(`#${i} No original quantization`);
                   track.quantization = originalQuantization;
@@ -493,6 +535,8 @@ export class Sorrygle{
         case "돗": case "렛": case "팟": case "솘": case "랏":
         case "렢": case "밒": case "솚": case "랖": case "싶":{
           addNote(i);
+          const [ C, semitones ] = assert(/^.([-+]*)/, i, 'semitone');
+          let semitone = 0;
           let octave = track!.octave;
           let key:MIDI.Pitch;
 
@@ -500,7 +544,11 @@ export class Sorrygle{
             octave += octaveOffset;
             octaveOffset = 0;
           }
-          key = `${Sorrygle.NOTES[c]}${octave}`;
+          for(let j = 0; j < semitones.length; j++){
+            if(semitones[j] === "+") semitone++;
+            else semitone--;
+          }
+          key = Sorrygle.transpose(`${Sorrygle.NOTES[c]}${octave}`, semitone);
           switch(inChord){
             case 'normal':
               if(prevNote) prevNote[0].push(key);
@@ -518,6 +566,7 @@ export class Sorrygle{
               [ track!.quantization ]
             ];
           }
+          i += C.length - 1;
         } break;
         case "^":
           addNote(i);
@@ -545,7 +594,7 @@ export class Sorrygle{
           // 숫자 구성 요소
           const topDiacritic = pendingDiacritics[pendingDiacritics.length - 1];
           
-          if(topDiacritic.type === DiacriticType.PITCH_BEND){
+          if(topDiacritic?.type === DiacriticType.PITCH_BEND){
             const [ C ] = assert(/^[-.0-9]+/, i, 'pitch-bend-frame');
             const value = parseFloat(C);
             if(isNaN(value) || value < -1 || value > 1) throw Error(`#${i} Malformed pitch bend value: ${C}`);
@@ -608,7 +657,7 @@ export class Sorrygle{
               if(notes.length % 2){
                 notes.push({
                   ...v,
-                  pitch: pitch.map(w => transpose(w, true)),
+                  pitch: pitch.map(w => Sorrygle.transpose(w, track!.transpose, true)),
                   duration: [ `T${Sorrygle.TRILL_LENGTH}` as any ],
                   wait: []
                 });
@@ -673,25 +722,6 @@ export class Sorrygle{
         track!.wait.push(...internalWait);
       }
       track!.velocity = newVelocity;
-    }
-    function transpose(v:MIDI.Pitch, forTrill?:boolean):MIDI.Pitch{
-      const [ , a, b ] = v.match(Sorrygle.REGEXP_PITCH)!;
-      const sequence = Sorrygle.NOTE_SEQUENCES.indexOf(a as any);
-      let newSequence = sequence + (forTrill
-        ? a === "E" || a === "B" || a.endsWith("#") ? 1 : 2
-        : track!.transpose
-      );
-      let carry = 0;
-
-      if(newSequence >= Sorrygle.NOTE_SEQUENCES.length){
-        carry++;
-        newSequence -= Sorrygle.NOTE_SEQUENCES.length;
-      }
-      if(newSequence < 0){
-        carry--;
-        newSequence += Sorrygle.NOTE_SEQUENCES.length;
-      }
-      return `${Sorrygle.NOTE_SEQUENCES[newSequence]}${parseInt(b) + carry}` as any;
     }
   }
 }

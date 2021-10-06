@@ -1,0 +1,14 @@
+{{octave-chord}}{
+  [vxx]
+}
+{{5-down-chord}}{
+  [x-----x]
+}
+{{swing-x4}}{
+  <p-0.5x~0~~>
+}
+
+#1
+{0 {{octave-chord}}(cdefg~~~)}
+{{5-down-chord}}(cdefg~~~)
+{{swing-x4}}(g){{swing-x4}}(vg)

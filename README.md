@@ -87,15 +87,18 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `CDFGA`          | Sharp note            | Play C#, D#, F#, G#, A# in sequence. You can use `돗렛팟솘랏` instead.
 | `렢밒솚랖싶`     | Flat note             | Play Db, Eb, Gb, Ab, Bb in sequence.
 | `_`              | Rest                  | Keep silent. You can use `ㅇ` instead.
+| `+`              | Semitone up           | Increate the pitch of the preceding note by one semitone.
+| `-`              | Semitone down         | Decrease the pitch of the preceding note by one semitone.
 | `~`              | Tie                   | Increase the length of the preceding note. You can use `ㅡ` instead.
 | `[ceg]`          | Chord                 | Play C, E, G at once.
 | `^c`             | Octave up             | Play C in one octave higher than the default.
 | `vc`             | Octave down           | Play C in one octave lower than the default.
-| `(^ceg)`         | Group octave up       | Play all notes in the bracket in one octave higher than the default.
-| `(vceg)`         | Group octave down     | Play all notes in the bracket in one octave lower than the default.
+| `(^ceg)`         | Ranged octave up      | Play all notes in the bracket in one octave higher than the default.
+| `(vceg)`         | Ranged octave down    | Play all notes in the bracket in one octave lower than the default.
 | `(3ceg)`         | Triplet               | Set the length of each note to 2/3 of the current quantization.
 | `(5cdefg)`       | Quintuplet            | Set the length of each note to 2/5 of the current quantization.
-| `(scdef)`        | Group sustain pedal   | Same as `(s=127)cdef(s=0)`.
+| `(7cdefgab)`     | Septuplet             | Set the length of each note to 2/7 of the current quantization.
+| `(scdef)`        | Ranged sustain pedal  | Same as `(s=127)cdef(s=0)`.
 | `[>ga]b`         | Appoggiatura          | Treat all notes in the bracket as appoggiaturas.
 | `[[c~~~\|efga]]` | Parallelization       | Play all notes sequentially in each section at once.
 | `<.c>`           | Staccato              | Play the note shortly (precisely `T8`).
@@ -109,10 +112,21 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `:\|ⓘ`          | Close repeat          | (1≤ⓘ) Set the end point of a repetition. You can omit ⓘ if you want to repeat the closed interval just once. | 1 |
 | `/1`             | Prima volta           | Play the following notes only if it's the first time to be played.
 | `/2`             | Seconda volta         | Play the following notes after one repetition, skipping the notes of the corresponding prima volta. Since currently only prima and seconda voltas are supported, you can omit this.
-| `{ⓘceg}`        | Grouping              | Name the set of notes ⓘ.
+| `{ⓘceg}`        | Group declaration     | Name the set of notes ⓘ.
 | `{=ⓘ}`          | Group reference       | Refer the set ⓘ. Repeats are ignored.
 | `=/`             | Head comment          | Ignore the text before this.
 | `/=`             | Tail comment          | Ignore the text after this.
+
+### User-defined Range
+You can define your own range like the example below.
+```sorrygle
+{{octave-chord}}{
+  [vxx]
+}
+
+#1 {{octave-chord}}(cdefg~~~) /= This is equivalent to
+#1 [vcc][vdd][vee][vff][vgg]~~~
+```
 
 ### Duration
 - `1`: Whole note
@@ -142,7 +156,7 @@ You can put one of the emojis below for ⓘ of `(p=ⓘ)`.
 
 ## Example
 🎵 Wolfgang Amadeus Mozart - Turkish March (first 27 bars)
-```plain
+```sorrygle
 ((time-sig=2/4))
 #1
 0 =/      ____                         {1 baGa (o=5)
