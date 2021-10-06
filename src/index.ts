@@ -49,22 +49,27 @@ const getTickDuration = (MIDI as any)['Utils']['getTickDuration'] as (duration:s
 
 export class Sorrygle{
   private static readonly NOTES = {
-    c: "C",
-    C: "C#",
-    d: "D",
-    D: "D#",
-    e: "E",
-    f: "F",
-    F: "F#",
-    g: "G",
-    G: "G#",
-    a: "A",
-    A: "A#",
-    b: "B"
+    c: "C", d: "D", e: "E", f: "F", g: "G", a: "A", b: "B",
+    C: "C#", D: "D#", F: "F#", G: "G#", A: "A#",
+
+    도: "C", 레: "D", 미: "E", 파: "F", 솔: "G", 라: "A", 시: "B",
+    돗: "C#", 렛: "D#", 팟: "F#", 솘: "G#", 랏: "A#",
+    렢: "Db", 밒: "Eb", 솚: "Gb", 랖: "Ab", 싶: "Bb"
   } as const;
   private static readonly NOTE_SEQUENCES = [
     'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
   ] as const;
+  private static readonly INSTRUMENTS:Table<number> = {
+    '🎹': 0,
+    '🪗': 21,
+    '🎸': 24,
+    '🎻': 40,
+    '🎤': 54,
+    '🎺': 56,
+    '🎷': 64,
+    '🪕': 105,
+    '🥁': 118
+  };
   private static readonly REGEXP_PITCH = /^([A-G]#?)(\d+)$/;
   private static readonly GRACE_LENGTH = 8;
   private static readonly TRILL_LENGTH = 16;
@@ -98,7 +103,10 @@ export class Sorrygle{
       }).replace(/\{=(\d+)\}/g, (_, g1:string) => {
         if(!ref[g1]) throw Error(`No such group: ${g1}`);
         return ref[g1].replace(/\|:|:\|\d*|\/\d+/g, "");
-      }).replace(/\(s(?!=)([\s\S]+?)\)/g, (_, g1:string) => (
+      }).replace(/\(p=(\D+?)\)/g, (_, g1:string) => (
+        `(p=${Sorrygle.INSTRUMENTS[g1] || g1})`
+      )).replace(/\(s(?!=)([\s\S]+?)\)/g, (_, g1:string) => (
+        // 서스테인 페달
         `(s=127)${g1}(s=0)`
       )).replace(/\(\^([\s\S]+?)\)/g, (_, g1:string) => (
         // 그룹 옥타브 올리기
@@ -469,7 +477,10 @@ export class Sorrygle{
           }
           break;
         case "c": case "d": case "e": case "f": case "g": case "a": case "b":
-        case "C": case "D": case "F": case "G": case "A":{
+        case "C": case "D": case "F": case "G": case "A":
+        case "도": case "레": case "미": case "파": case "솔": case "라": case "시":
+        case "돗": case "렛": case "팟": case "솘": case "랏":
+        case "렢": case "밒": case "솚": case "랖": case "싶":{
           addNote(i);
           let octave = track!.octave;
           let key:MIDI.Pitch;
@@ -507,12 +518,12 @@ export class Sorrygle{
           // 한 옥타브 아래
           octaveOffset--;
           break;
-        case "_":
+        case "_": case "ㅇ":
           // 쉼표
           addNote(i, true);
           track!.wait.push(track!.quantization);
           break;
-        case "~":
+        case "~": case "ㅡ":
           // 길이 연장
           if(!track) throw Error(`#${i} No channel specified`);
           if(!prevNote) throw Error(`#${i} No previous note (long)`);

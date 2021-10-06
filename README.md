@@ -78,15 +78,16 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `((time-sig=ⓘ/ⓘ))` | Time signature configuration | Set the time signature to ⓘ/ⓘ. | 4/4 |
 | `#ⓘ`            | Channel declaration   | (1≤ⓘ≤16) Set the current channel for following input. | 1 |
 | `(o=ⓘ)`         | Default octave        | (0≤ⓘ≤8) Set the default octave for following input. | 4 |
-| `(p=ⓘ)`         | Instrument            | (0≤ⓘ≤127) Set the instrument for following input. You can refer to [GM 1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set) for determining the number. Please note that `PC# = ⓘ + 1` since ⓘ starts from zero. | 0 |
+| `(p=ⓘ)`         | Instrument            | (0≤ⓘ≤127) Set the instrument for following input. You can refer to [Instrument](#instrument) or [GM 1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set) for determining the value. Please note that `PC# = ⓘ + 1` since ⓘ starts from zero. | 0 |
 | `(q=ⓓ)`         | Quantization          | Set the default note/rest/tie length for following input. | 16 |
 | `(s=ⓘ)`         | Sustain pedal         | (0≤ⓘ≤127) Set the value of the sustain pedal. It's enabled only if ⓘ≥64. | 0 |
 | `(t=ⓘ)`         | Transpose             | Transpose following input. | 0 |
 | `(v=ⓘ)`         | Volume                | (1≤ⓘ≤100) Set the volume for following input. | 80 |
-| `cdefgab`        | Note                  | Play C, D, E, F, G, A, B in sequence.
-| `CDFGA`          | Sharp note            | Play C#, D#, F#, G#, A# in sequence.
-| `_`              | Rest                  | Keep silent
-| `~`              | Tie                   | Increase the length of the preceding note.
+| `cdefgab`        | Note                  | Play C, D, E, F, G, A, B in sequence. You can use `도레미파솔라시` instead.
+| `CDFGA`          | Sharp note            | Play C#, D#, F#, G#, A# in sequence. You can use `돗렛팟솘랏` instead.
+| `렢밒솚랖싶`     | Flat note             | Play Db, Eb, Gb, Ab, Bb in sequence.
+| `_`              | Rest                  | Keep silent. You can use `ㅇ` instead.
+| `~`              | Tie                   | Increase the length of the preceding note. You can use `ㅡ` instead.
 | `[ceg]`          | Chord                 | Play C, E, G at once.
 | `^c`             | Octave up             | Play C in one octave higher than the default.
 | `vc`             | Octave down           | Play C in one octave lower than the default.
@@ -123,6 +124,20 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 - You can put `t` at the end of each number above for triplets.
 - You can put `d` or `dd` at the front of each number above for (double-)dotted notes.
 - `Tⓘ`: ⓘ-tick-long note. Note that `♩ = T128`.
+
+### Instrument
+You can put one of the emojis below for ⓘ of `(p=ⓘ)`.
+| Emoji | Corresponding number | Name |
+|-------|----------------------|------|
+| 🎹 | 0  | Acoustic Grand Piano |
+| 🪗 | 21 | Accordion |
+| 🎸 | 24 | Acoustic Guitar (nylon) |
+| 🎻 | 40 | Violin |
+| 🎤 | 54 | Synth Voice |
+| 🎺 | 56 | Trumpet |
+| 🎷 | 64 | Soprano Sax |
+| 🪕 | 105 | Banjo |
+| 🥁 | 118 | Synth Drum |
 
 ## Example
 🎵 Wolfgang Amadeus Mozart - Turkish March (first 27 bars)
