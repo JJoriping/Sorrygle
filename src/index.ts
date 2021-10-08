@@ -97,7 +97,7 @@ export class Sorrygle{
     }
   }
   private static preprocess(data:string):string{
-    const validNotes = new RegExp(`[${Object.keys(Sorrygle.NOTES).join('')}]`, "g");
+    const validNotes = new RegExp(`([v^\s]*[${Object.keys(Sorrygle.NOTES).join('')}])([~\s]*)`, "g");
     const ref:Table<string> = {};
     const udr:Table<string> = {};
     let R = data.replace(/(.*)=\/|\/=(.*)/mg, "");
@@ -110,7 +110,7 @@ export class Sorrygle{
         return "";
       }).replace(/\{\{([^\}]+)\}\}\s*\(([\s\S]*?)\)/g, (_, g1:string, g2:string) => {
         if(!udr[g1]) throw Error(`No such range: ${g1}`);
-        return g2.replace(validNotes, h => udr[g1].replace(/x/g, h));
+        return g2.replace(validNotes, (_, h1:string, h2:string) => udr[g1].replace(/x/g, h1) + h2);
       }).replace(/\{(\d+)([\s\S]+?)\}/g, (_, g1:string, g2:string) => {
         // 그룹 선언
         if(g1 in ref) throw Error(`Already declared group: ${g1}`);
