@@ -5,6 +5,7 @@
     "target": "ES3",
     "downlevelIteration": true,
     "outDir": "dist",
+    "sourceMap": true,
     "experimentalDecorators": true,
     "noImplicitOverride": true,
     "declaration": true

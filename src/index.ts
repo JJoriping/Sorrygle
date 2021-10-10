@@ -22,7 +22,8 @@ type TrackSet = {
     'count': number,
     'current': number,
     'closed'?: boolean
-  }
+  },
+  'children': TrackSet[]
 };
 enum DiacriticType{
   INVALID,
@@ -179,7 +180,8 @@ export class Sorrygle{
       ? {
         ...this.trackPreset,
         data: new MIDI.Track(),
-        wait: [ ...this.trackPreset.wait ]
+        wait: this.trackPreset.wait,
+        children: []
       }
       : {
         id,
@@ -189,7 +191,8 @@ export class Sorrygle{
         velocity: 80,
         transpose: 0,
         position: 0,
-        wait: []
+        wait: [],
+        children: []
       }
     ;
   }
@@ -199,7 +202,7 @@ export class Sorrygle{
 
     for(const v of this.tracks){
       if(v.pitchBendData) data.push(v.pitchBendData);
-      data.push(v.data);
+      data.push(v.data, ...v.children.map(w => w.data));
     }
     return Buffer.from(new MIDI.Writer(data).buildFile());
   }
@@ -209,7 +212,7 @@ export class Sorrygle{
       ...(this.globalPreset || {})
     };
     const chunk = this.data;
-    let track:TrackSet|undefined;
+    let track = this.tracks[0];
     let inChord:'normal'|'grace'|undefined;
     let prevNote:[notes:MIDI.Pitch[], length:MIDI.Duration[]]|undefined;
 
@@ -230,6 +233,7 @@ export class Sorrygle{
         track = this.createTrack(1);
         if(track.position > 0){
           track.wait.push(`T${track.position}` as any);
+          track.position = 0;
         }
         this.tracks.push(track);
       }
@@ -239,8 +243,8 @@ export class Sorrygle{
         else return;
       }
       if(track.transpose){
-        prevNote[0] = prevNote[0].map(v => Sorrygle.transpose(v, track!.transpose));
-        if(pendingGrace) pendingGrace = pendingGrace.map(v => Sorrygle.transpose(v, track!.transpose));
+        prevNote[0] = prevNote[0].map(v => Sorrygle.transpose(v, track.transpose));
+        if(pendingGrace) pendingGrace = pendingGrace.map(v => Sorrygle.transpose(v, track.transpose));
       }
       if(octaveOffset){
         prevNote[0] = prevNote[0].map(v => {
@@ -324,16 +328,16 @@ export class Sorrygle{
             const [ C, key, value ] = assert(/^\(\((.+?)=(.+?)\)\)/, i, 'set-global-variable');
             switch(key){
               case 'bpm':
-                this.configurationTrack.data.addEvent(getGhostNote(track!.position - this.configurationTrack.position));
+                this.configurationTrack.data.addEvent(getGhostNote(track.position - this.configurationTrack.position));
                 this.configurationTrack.data.setTempo(Number(value));
-                this.configurationTrack.position = track!.position;
+                this.configurationTrack.position = track.position;
                 break;
               case 'time-sig':{
                 const [ n, d ] = value.split('/');
 
-                this.configurationTrack.data.addEvent(getGhostNote(track!.position - this.configurationTrack.position));
+                this.configurationTrack.data.addEvent(getGhostNote(track.position - this.configurationTrack.position));
                 this.configurationTrack.data.setTimeSignature(parseInt(n), parseInt(d));
-                this.configurationTrack.position = track!.position;
+                this.configurationTrack.position = track.position;
               } break;
               case 'fermata':
                 global.fermataLength = Number(value);
@@ -401,16 +405,26 @@ export class Sorrygle{
               const [ C ] = assert(/^\[\[([\s\S]+?)(?=\]\])/, i, 'parallel');
               const list = C.split('|');
 
+              if(C.includes("#")) throw Error(`#${i} Multiple tracks in a parallel group are not supported`);
               if(list.length <= 1) throw Error(`#${i} Useless parallel`);
-              for(const v of list.slice(1)){
+              for(let j = 1; j < list.length; j++){
+                const pv = track.children[j - 1];
+                const v = list[j];
                 const child = new Sorrygle(v);
 
                 child.globalPreset = global;
-                child.trackPreset = {
-                  ...track!
-                };
+                child.trackPreset = JSON.parse(JSON.stringify(track)) as TrackSet;
+                if(pv){
+                  const gap = track.position + getTickDuration(track.wait) - pv.position - getTickDuration(pv.wait);
+
+                  if(gap < 0) throw Error(`#${i} Malformed parallel (the gap was ${gap})`);
+                  pv.wait.push(`T${gap}` as any);
+                  child.tracks.push(pv);
+                }
                 child.parse();
-                this.tracks.push(...child.tracks);
+                if(!pv){
+                  track.children[j - 1] = child.tracks[0];
+                }
               }
               parallelRange = [ i + list[0].length, i + C.length + 1 ];
               i++;
@@ -449,7 +463,7 @@ export class Sorrygle{
 
               type = DiacriticType.CRESCENDO;
               [ C, ...args ] = assert(/^<\+[\s\S]+?(\d+)(?=>)/, i, 'diacritic-crescendo');
-              if(track!.velocity >= parseInt(args[0])) throw Error(`#${i} Useless crescendo`);
+              if(track.velocity >= parseInt(args[0])) throw Error(`#${i} Useless crescendo`);
               argsRange = [ i + C.length - args[0].length, i + C.length - 1 ];
             } break;
             case "-":{
@@ -457,7 +471,7 @@ export class Sorrygle{
 
               type = DiacriticType.DECRESCENDO;
               [ C, ...args ] = assert(/^<-[\s\S]+?(\d+)(?=>)/, i, 'diacritic-decrescendo');
-              if(track!.velocity <= parseInt(args[0])) throw Error(`#${i} Useless decrescendo`);
+              if(track.velocity <= parseInt(args[0])) throw Error(`#${i} Useless decrescendo`);
               argsRange = [ i + C.length - args[0].length, i + C.length - 1 ];
             } break;
             case "p":
@@ -486,7 +500,7 @@ export class Sorrygle{
           addNote(i, true);
           // 여는 도돌이표
           i++;
-          track!.repeat = {
+          track.repeat = {
             start: i,
             count: 1,
             current: 0
@@ -500,27 +514,27 @@ export class Sorrygle{
           const count = parseInt(repeat || "1");
 
           if(isNaN(count) || count < 1) throw Error(`#${i} Malformed repeat: ${repeat}`);
-          if(!track!.repeat.closed){
-            track!.repeat.count = count;
-            track!.repeat.closed = true;
+          if(!track.repeat.closed){
+            track.repeat.count = count;
+            track.repeat.closed = true;
           }
-          if(track!.repeat.current >= track!.repeat.count){
-            delete track!.repeat;
+          if(track.repeat.current >= track.repeat.count){
+            delete track.repeat;
             i += C.length - 1;
           }else{
-            track!.repeat.current++;
-            i = track!.repeat.start;
+            track.repeat.current++;
+            i = track.repeat.start;
           }
         } break;
         case "/":
           addNote(i, true);
           switch(n1){
             case "1":
-              if(!track!.repeat || track!.repeat.count > 1) throw Error(`#${i} Unexpected prima volta`);
-              if(track!.repeat.current === 1){
+              if(!track.repeat || track.repeat.count > 1) throw Error(`#${i} Unexpected prima volta`);
+              if(track.repeat.current === 1){
                 const [ C ] = assert(/^\/1[\s\S]+?:\|\s*(\/2)?/, i, 'repeat');
 
-                delete track!.repeat;
+                delete track.repeat;
                 i += C.length - 1;
               }else{
                 i++;
@@ -537,7 +551,7 @@ export class Sorrygle{
           addNote(i);
           const [ C, semitones ] = assert(/^.([-+]*)/, i, 'semitone');
           let semitone = 0;
-          let octave = track!.octave;
+          let octave = track.octave;
           let key:MIDI.Pitch;
 
           if(inChord){
@@ -554,7 +568,7 @@ export class Sorrygle{
               if(prevNote) prevNote[0].push(key);
               else prevNote = [
                 [ key ],
-                [ track!.quantization ]
+                [ track.quantization ]
               ];
               break;
             case 'grace':
@@ -563,7 +577,7 @@ export class Sorrygle{
               break;
             default: prevNote = [
               [ key ],
-              [ track!.quantization ]
+              [ track.quantization ]
             ];
           }
           i += C.length - 1;
@@ -581,7 +595,7 @@ export class Sorrygle{
         case "_": case "ㅇ":
           // 쉼표
           addNote(i, true);
-          track!.wait.push(track!.quantization);
+          track.wait.push(track.quantization);
           break;
         case "~": case "ㅡ":
           // 길이 연장
@@ -600,10 +614,10 @@ export class Sorrygle{
             if(isNaN(value) || value < -1 || value > 1) throw Error(`#${i} Malformed pitch bend value: ${C}`);
             const samples = topDiacritic.notes.map(v => [ v.duration, v.wait ]);
 
-            samples.push([ track!.wait ]);
+            samples.push([ track.wait ]);
             if(prevNote) samples.push([ prevNote[1] ]);
             topDiacritic.args!.push([
-              track!.position + getTickDuration(samples.flat(2)),
+              track.position + getTickDuration(samples.flat(2)),
               value
             ]);
             i += C.length - 1;
@@ -624,7 +638,7 @@ export class Sorrygle{
     function popDiacritic(index:number):void{
       const diacritic = pendingDiacritics.pop();
       let internalWait:MIDI.Duration[] = [];
-      let newVelocity = track!.velocity;
+      let newVelocity = track.velocity;
 
       if(!diacritic){
         throw Error("No diacritics opened");
@@ -657,7 +671,7 @@ export class Sorrygle{
               if(notes.length % 2){
                 notes.push({
                   ...v,
-                  pitch: pitch.map(w => Sorrygle.transpose(w, track!.transpose, true)),
+                  pitch: pitch.map(w => Sorrygle.transpose(w, track.transpose, true)),
                   duration: [ `T${Sorrygle.TRILL_LENGTH}` as any ],
                   wait: []
                 });
@@ -674,19 +688,19 @@ export class Sorrygle{
           case DiacriticType.CRESCENDO:
           case DiacriticType.DECRESCENDO:
             if(!diacritic.args) throw Error(`#${index} Malformed diacritic`);
-            v.velocity = track!.velocity + i / (my.length - 1) * (diacritic.args[0] - track!.velocity);
+            v.velocity = track.velocity + i / (my.length - 1) * (diacritic.args[0] - track.velocity);
             newVelocity = v.velocity;
             break;
           case DiacriticType.PITCH_BEND: if(!i){
             // 안에 노트가 얼마나 있든 한 번만 처리하면 된다.
             if(!diacritic.args || diacritic.args.length < 1) throw Error(`#${index} Malformed pitch bend`);
-            const data = track!.pitchBendData || new MIDI.Track();
+            const data = track.pitchBendData || new MIDI.Track();
             const frames:[number, number][] = diacritic.args;
-            let prevPosition = track!.pitchBendPosition || 0;
+            let prevPosition = track.pitchBendPosition || 0;
             const setBend = (position:number, value:number) => {
               data.addEvent(getGhostNote(position - prevPosition));
               data.addEvent(new (MIDI as any)['PitchBendEvent']({
-                channel: track!.id - 1,
+                channel: track.id - 1,
                 bend: value
               }));
               prevPosition = position;
@@ -704,24 +718,24 @@ export class Sorrygle{
               }
               setBend(...curr);
             }
-            setBend(track!.position + getTickDuration(
+            setBend(track.position + getTickDuration(
               diacritic.notes.map(v => [ v.duration, v.wait ]).flat(2)
             ), 0);
-            track!.pitchBendData = data;
-            track!.pitchBendPosition = prevPosition;
+            track.pitchBendData = data;
+            track.pitchBendPosition = prevPosition;
           } break;
         }
         if(pendingDiacritics.length){
           pendingDiacritics[pendingDiacritics.length - 1].notes.push(...notes);
         }else{
-          track!.position += getTickDuration(v.duration) + getTickDuration(v.wait);
-          track!.data.addEvent(notes.map(w => new MIDI.NoteEvent(w)));
+          track.position += getTickDuration(v.duration) + getTickDuration(v.wait);
+          track.data.addEvent(notes.map(w => new MIDI.NoteEvent(w)));
         }
       });
       if(internalWait.length){
-        track!.wait.push(...internalWait);
+        track.wait.push(...internalWait);
       }
-      track!.velocity = newVelocity;
+      track.velocity = newVelocity;
     }
   }
 }
