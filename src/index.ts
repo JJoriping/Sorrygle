@@ -228,7 +228,7 @@ export class Sorrygle{
     let originalQuantization:MIDI.Duration|undefined;
     let quantizationCarry = 0;
     
-    const addNote = (i:number, breakChord?:boolean) => {
+    const addNote = (i:number, breakChord?:boolean, dry?:boolean) => {
       if(!track){
         track = this.createTrack(1);
         if(track.position > 0){
@@ -242,6 +242,7 @@ export class Sorrygle{
         if(breakChord) throw Error(`#${i} Incomplete chord`);
         else return;
       }
+      if(dry) return;
       if(track.transpose){
         prevNote[0] = prevNote[0].map(v => Sorrygle.transpose(v, track.transpose));
         if(pendingGrace) pendingGrace = pendingGrace.map(v => Sorrygle.transpose(v, track.transpose));
@@ -289,6 +290,9 @@ export class Sorrygle{
         velocity: track.velocity,
         wait: track.wait
       };
+      if(getTickDuration(options.duration) < 0){
+        throw Error(`#${i} Negative duration`);
+      }
       if(pendingDiacritics.length){
         pendingDiacritics[pendingDiacritics.length - 1].notes.push(options);
       }else{
@@ -322,20 +326,25 @@ export class Sorrygle{
 
       switch(c){
         case "(":
-          addNote(i, true);
+          addNote(i, true, true);
           if(n1 === "("){
             // 전역 설정
             const [ C, key, value ] = assert(/^\(\((.+?)=(.+?)\)\)/, i, 'set-global-variable');
+            const gap = track.position - this.configurationTrack.position;
+
+            if(gap < 0){
+              throw Error(`#${i} Global variables can not intersect each other`);
+            }
             switch(key){
               case 'bpm':
-                this.configurationTrack.data.addEvent(getGhostNote(track.position - this.configurationTrack.position));
+                this.configurationTrack.data.addEvent(getGhostNote(gap));
                 this.configurationTrack.data.setTempo(Number(value));
                 this.configurationTrack.position = track.position;
                 break;
               case 'time-sig':{
                 const [ n, d ] = value.split('/');
 
-                this.configurationTrack.data.addEvent(getGhostNote(track.position - this.configurationTrack.position));
+                this.configurationTrack.data.addEvent(getGhostNote(gap));
                 this.configurationTrack.data.setTimeSignature(parseInt(n), parseInt(d));
                 this.configurationTrack.position = track.position;
               } break;
