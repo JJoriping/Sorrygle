@@ -29,11 +29,13 @@
   ],
   "devDependencies": {
     "@tsconfig/node16": "^1.0.2",
+    "@types/nearley": "^2.11.2",
     "@types/node": "^16.10.2",
     "tsc": "^2.0.3",
     "typescript": "^4.4.3"
   },
   "dependencies": {
-    "midi-writer-js": "=2.0.1"
+    "midi-writer-js": "=2.0.1",
+    "nearley": "^2.20.1"
   }
 }
