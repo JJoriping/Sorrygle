@@ -424,6 +424,11 @@ export class Sorrygle{
                 child.globalPreset = global;
                 child.trackPreset = JSON.parse(JSON.stringify(track)) as TrackSet;
                 if(pv){
+                  pv.quantization = track.quantization;
+                  pv.octave = track.octave;
+                  pv.velocity = track.velocity;
+                  pv.transpose = track.transpose;
+
                   const gap = track.position + getTickDuration(track.wait) - pv.position - getTickDuration(pv.wait);
 
                   if(gap < 0) throw Error(`#${i} Malformed parallel (the gap was ${gap})`);
