@@ -697,6 +697,8 @@ export class Sorrygle{
                 });
               }
             }
+            notes[0].wait = v.wait;
+            v.wait = [];
             internalWait.push(`T${left}` as any);
           } break;
           case DiacriticType.CRESCENDO:
