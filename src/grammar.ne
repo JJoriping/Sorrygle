@@ -1,71 +1,85 @@
+@preprocessor typescript
 @{%
-function e(value){
-  if(!value?.length) return undefined;
+function e<T extends string|any[]|null>(value:T):T|undefined{
+  if(!value || value.length === 0) return undefined;
   return value;
 }
 %}
 
-Main                -> (GlobalConfiguration {% id %} | ChannelDeclaration {% id %} | UDRDefinition {% id %} | Stackable {% id %}):+ {% id %}
+Main                -> (GlobalConfiguration {% id %}
+                       | EmojiDeclaration {% id %}
+                       | ChannelDeclaration {% id %}
+                       | UDRDefinition {% id %}
+                       | Repetition {% id %}
+                       | Stackable {% id %}):+ {% id %}
 GlobalConfiguration -> "((" words "=" words "))" {%
-  d => ({ type: "global-configuration", key: d[1].value, value: d[3].value })
+  (d, l) => ({ l, type: "global-configuration", key: d[1].value, value: d[3].value })
 %}
 ChannelDeclaration  -> "#" digits {%
-  d => ({ type: "channel-declaration", id: d[1] })
+  (d, l) => ({ l, type: "channel-declaration", id: d[1].value })
 %}
 UDRDefinition       -> "{{" words "}}" __ "{" Stackable:+ "}" {%
-  d => ({ type: "udr-definition", name: d[1].value, value: d[5] })
+  (d, l) => ({ l, type: "udr-definition", name: d[1].value, value: d[5] })
 %}
 LocalConfiguration  -> "(" words "=" words ")" {%
-  d => ({ type: "local-configuration", key: d[1].value, value: d[3].value })
+  (d, l) => ({ l, type: "local-configuration", key: d[1].value, value: d[3].value })
 %}
 Stackable           -> LocalConfiguration {% id %}
+                       | EmojiReference {% id %}
                        | Range {% id %}
                        | Notation {% id %}
                        | Group {% id %}
                        | Parallelization {% id %}
-                       | repetition {% id %}
                        | rest {% id %}
                        | _ {% id %}
+EmojiDeclaration    -> "((" emoji "=" __ LocalConfiguration __ "))" {%
+  (d, l) => ({ l, type: "emoji-declaration", key: d[1].join(''), value: d[4] })
+%}
+EmojiReference      -> "(" emoji ")" {%
+  (d, l) => ({ l, type: "emoji-reference", key: d[1].join('') })
+%}
 Range               -> "(" rangeType Stackable:+ ")" {%
-  d => ({ type: "range", key: d[1], value: d[2] })
+  (d, l) => ({ l, type: "range", key: d[1], value: d[2] })
 %}
                        | "{{" words "}}" __ "(" Stackable:+ ")" {%
-  d => ({ type: "range", key: d[1].value, value: d[5] })
+  (d, l) => ({ l, type: "range", udr: true, key: d[1].value, value: d[5] })
 %}
 Notation            -> Grace:? restrictedNotation {%
-  d => ({ type: "notation", grace: e(d[0]), value: d[1] })
+  (d, l) => ({ l, type: "notation", grace: e(d[0]), value: d[1] })
 %}
-Grace               -> "[>" (keySet | chordSet | Range | _):+ "]" {%
-  d => ({ type: "grace", value: d[1] })
+Grace               -> "[>" (keySet {% id %} | chordSet {% id %} | Range {% id %} | _ {% id %}):+ "]" {%
+  (d, l) => ({ l, type: "appoggiatura", value: d[1] })
 %}
 Group               -> "{" digits Stackable:+ "}" {%
-  d => ({ type: "group-declaration", key: d[1], value: d[2] })
+  (d, l) => ({ l, type: "group-declaration", key: d[1].value, value: d[2] })
 %}
                        | "{=" digits "}" {%
-  d => ({ type: "group-reference", key: d[1] })
+  (d, l) => ({ l, type: "group-reference", key: d[1].value })
 %}
 Parallelization     -> "[[" Stackable:+ ("|" Stackable:+):+ "]]" {%
-  d => ({ type: "parallelization", values: [ ...d[1], ...d[2].map(v => v[1]) ] })
+  (d, l) => ({ l, type: "parallelization", values: [ d[1], ...d[2].map((v:any) => v[1]) ] })
 %}
 
-word                -> [A-Za-z0-9.\-/] {% id %}
-words               -> word:+ {% d => ({ type: "words", value: d[0].join('') }) %}
+word                -> [\w.\/\-] {% id %}
+words               -> word:+ {% (d, l) => ({ l, type: "words", value: d[0].join('') }) %}
+emoji               -> [^\x00-\xFF]:+ {% id %}
 digit               -> [0-9] {% id %}
-digits              -> digit:+ {% d => ({ type: "digits", value: parseInt(d[0].join('')) }) %}
-decimal             -> [-0-9.] {% id %}
+digits              -> digit:+ {% (d, l) => ({ l, type: "digits", value: parseInt(d[0].join('')) }) %}
+decimals            -> [-0-9.]:+ {% (d, l) => ({ l, type: "decimals", value: parseFloat(d[0].join('')) }) %}
 restrictedNotation  -> keySet {% id %}
                        | chordSet {% id %}
-                       | "<" diacriticType (restrictedNotation {% id %} | _ {% id %}):+ ">" {%
-  d => ({ type: "diacritic", name: d[1], value: d[2] })
+                       | tie {% id %}
+                       | "<" diacriticType (restrictedNotation {% id %} | rest {% id %} | _ {% id %}):+ ">" {%
+  (d, l) => ({ l, type: "diacritic", name: d[1], value: d[2] })
 %}
-                       | "<+" (restrictedNotation {% id %} | _ {% id %}):+ digits ">" {%
-  d => ({ type: "diacritic", name: "+", volume: d[2], value: d[1] })
+                       | "<+" (restrictedNotation {% id %} | rest {% id %} | _ {% id %}):+ digits ">" {%
+  (d, l) => ({ l, type: "diacritic", name: "+", velocity: d[2].value, value: d[1] })
 %}
-                       | "<-" (restrictedNotation {% id %} | _ {% id %}):+ digits ">" {%
-  d => ({ type: "diacritic", name: "-", volume: d[2], value: d[1] })
+                       | "<-" (restrictedNotation {% id %} | rest {% id %} | _ {% id %}):+ digits ">" {%
+  (d, l) => ({ l, type: "diacritic", name: "-", velocity: d[2].value, value: d[1] })
 %}
-                       | "<p" (restrictedNotation {% id %} | decimal {% id %} | _ {% id %}):+ ">" {%
-  d => {
+                       | "<p" (restrictedNotation {% id %} | rest {% id %} | "(" decimals ")" {% (d, l) => d[1] %} | _ {% id %}):+ ">" {%
+  (d, l) => {
     const R = [];
     let chunk = "";
 
@@ -82,29 +96,37 @@ restrictedNotation  -> keySet {% id %}
     if(chunk){
       R.push(parseFloat(chunk));
     }
-    return { type: "diacritic", name: "p", frames: R };
+    return { l, type: "diacritic", name: "p", value: R };
   }
 %}
-keySet              -> notePrefix:* key (noteSuffix {% id %} | tie {% id %}):* {%
-  d => ({ type: "key", prefix: e(d[0]), key: d[1], suffix: e(d[2]) })
+keySet              -> notePrefix:* key noteSuffix:* {%
+  (d, l) => ({ l, type: "key", prefix: e(d[0]), key: d[1], suffix: e(d[2]) })
 %}
 restrictedKeySet    -> notePrefix:* key noteSuffix:* {%
-  d => ({ type: "key", prefix: e(d[0]), key: d[1], suffix: e(d[2]) })
+  (d, l) => ({ l, type: "key", prefix: e(d[0]), key: d[1], suffix: e(d[2]) })
 %}
-chordSet            -> "[" restrictedKeySet:+ "]" tie:* {%
-  d => ({ type: "chord", value: d[1], suffix: e(d[3]) })
+chordSet            -> "[" restrictedKeySet:+ "]" {%
+  (d, l) => ({ l, type: "chord", value: d[1] })
 %}
-repetition          -> "|:" {% id %} | ":|" digits:? {%
-  d => ({ type: "repeat-close", count: e(d[1]) })
+Repetition          -> "|:" {%
+  (d, l) => ({ l, type: "repeat-open" })
+%} | ":|" digits:? {%
+  (d, l) => ({ l, type: "repeat-close", count: e(d[1]?.value) })
+%} | "/1" {%
+  (d, l) => ({ l, type: "volta", value: 1 })
+%} | "/2" {%
+  (d, l) => ({ l, type: "volta", value: 2 })
 %}
-                       | "/1" {% id %}
-                       | "/2" {% id %}
 rangeType           -> [v^357s] {% id %}
 diacriticType       -> [.~!t] {% id %}
 notePrefix          -> [v^] {% id %}
 noteSuffix          -> [-+] {% id %}
 key                 -> [xcdefgabCDEFGA도레미파솔라시돗렛팟솘랏렢밒솚랖싶] {% id %}
-rest                -> [_ㅇ] {% id %}
-tie                 -> [~ㅡ] {% id %}
+rest                -> [_ㅇ] {%
+  (d, l) => ({ l, type: "rest" })
+%}
+tie                 -> [~ㅡ] {%
+  (d, l) => ({ l, type: "tie" })
+%}
 __                  -> [\s]:* {% () => null %}
 _                   -> [\s] {% () => null %}

@@ -1,95 +1,95 @@
-((time-sig=2/4))
-#1
-0 =/      ____                        {10 baGa (o=5)
-2 =/ |:   c~__dcvbc                       e~__feDe
-4 =/      baGabaGa                   }{12 <!^c~~~>a_^c_
-6 =/      [>ga]b_[Fa]_[eg]_[Fa]_          [>ga]b_[Fa]_[eg]_[Fa]_
-8 =/      [>ga]b_[Fa]_[eg]_[DF]_       /1 e~~~}(vbaGa) :|
-10=/ /2   e~~~          |:{13 [ce]_[df]_  [eg]_[eg]_agfe
-13=/      [[<!d~~~>|vb~vg~]][ce]_[df]_    [eg]_[eg]_agfe
-15=/      [vbd]~~~[vac]_[vbd]_            [ce]_[ce]_fedc
-17=/      (v[[<!b~~~>|G~e~]])[vac]_[vbd]_ [ce]_[ce]_fedc
-19=/      (v[bG]~~~)(o=4)}{=10}       {14 <!^c~~~>a_b_
-24=/      ^c_b_a_G_                       a_e_f_d_
-26=/      c~~~(q=32)(v<tb~~~~~>ab)(q=16)  va~~~} :||: {11 {{o}}(a_b_
-29=/      <!^C~~~>a_b_                    ^C_b_a_G_
-31=/      F_G_a_b_                        G_e_a_b_
-33=/      <!^C~~~>a_b_                    ^C_b_a_G_
-35=/      F_b_G_e_                        a~~~)} :||: (^CdC)b
-38=/      abaGFaGF                        fFGfCDfC
-40=/      FfFGaGab                        (^CcCcCdC)b
-42=/      abaGFaGF                        eFGeCDeC
-44=/      DeFDcCDc                        C~~~   :||: edCvb
-47=/      vavbCdeFGa                      aGFeedCvb
-49=/      vavbCdeFGa                      [>a]A~b_edCvb
-51=/      vavbCdeFGa                      aGFeedCvb
-53=/      CevaCvbd(vGb                    a~~~)(^CdC)b
-55=/      abaGFaGF                        fFGfCDfC
-57=/      FfFGaGab                        (^CcCcCcCvA
-59=/      dCdCdCdC                        dC)baGabG
-61=/      ab^CFfFGf                       F~~~   :||: {=11}
-72=/      :||: (o=4){=10}{=12} :||: {=13}{=10}{=14} :||: {{p}}(ab
-99=/      <!^C>__ab                       ^CbaG
-101=/     FGab                            Geab
-103=/     <!^C>__ab                       ^CbaG
-105=/     FbGe                          ) [vaa]~~~ :| [C^C]~~^C
-108=/ {15 [>Cea]<!^C~~~~~~~>              [>Cea]<!^C~~~~~~~>
-110=/     (^dCvbCdCvbC)                   <![Fa^d]~~~~~~~>}
-112=/     |: [>^d]<.[ea^C]>_ :|3          [eGb]~~~~~^e~
-114=/     {=15}
-118=/     [>^d][ea^C]~~~~~~~              |: [>^C]<.[eGb]>_ :|3
-120=/     a~~~[>ea]^C~~^C                 |: [>ea]<!^C~~~~~~~> :|
-123=/     (^dCvbCdCvbC)                   ^d~~~~~~~
-125=/     |: [>^d]<![ea^C]>_ :|3          b~~~~~^e~
-127=/     {=15}
-131=/     [>^d][ea^C]~~~~~~~              |: [>^C]<.[eGb]>_ :|3
-133=/     [vaCea]~~~~~{{o}}(^C~           a~~~~~^e~
-135=/     a~~~~~^C~                       a_^C_a_^e_
-137=/     a___)[vaCea]___                 <![vaCea]~~~~~~~>
-
-#2(q=8)
-0 =/      __                          {20 __
-2 =/ |:   va[ce][ce][ce]                  va[ce][ce][ce]
-4 =/      va[ce]va[ce]               }{22 va[ce][ce][ce]
-6 =/      (ve[b^e][b^e][b^e]              e[b^e][b^e][b^e]
-8 =/      e[b^e]vbb                    /1 e~)}__   :|
-10=/ /2   ve~            |:{23__          vccvee
-13=/      g~__                            vccvee
-15=/      g~__                            vvavavcc
-17=/      e~__                            vvavavcc
-19=/      e~}{=20}                    {24 vf[vaD][vaD][vaD]
-24=/      (ve[a^e]d[fb]                   c[ea]d[fb]
-26=/      [ea][ea][eG][eG]                [vaa]~)} :||: {21 __ (o=3)
-29=/      [>vaCe]aaaa                     [>vaCe]aaaa
-31=/      [>(vdFa)]dd[>(vDFa)]DD          [>(veGb)]eeee
-33=/      [>vaCe]aaaa                     [>vaCe]aaaa
-35=/      [>(vdFa)]dd[>(veGb)]ee          va~}     :||: __
-38=/      F[a^C][a^C][a^C]                G[b^C][b^C][b^C]
-40=/      F[a^C][a^C][a^C]                f[G^C][G^C][G^C]
-42=/      F[a^C][a^C][a^C]                G[^C^e][^C^e][^C^e]
-44=/      G[^D^F][^D^F][^D^F]             [^C^e]~  :||: __ (o=4)
-47=/      va[Ce][Ce][Ce]                  vb[de]vG[de]
-49=/      va[Ce][Ce][Ce]                  ve[vGd][vGd][vGd]
-51=/      va[Ce][Ce][Ce]                  vb[de]vG[de]    (o=3)
-53=/      aFde                            vaa__
-55=/      F[a^C][a^C][a^C]                G[b^C][b^C][b^C]
-57=/      F[a^C][a^C][a^C]                C[G^C][g^C][F^C]
-59=/      vb[Fb][Fb][Fb]                  vb[Gb][Gb][Gb]
-61=/      C[Fa]C[Gb]                      [Fa]~    :||: {=21}
-72=/      :||: (o=4){=20}{=22} :||: {=23}{=20}{=24} :||: {=21} :| aa
-108=/ {25 [>vaCe]aaaa                     [>vaCe]aaaa
-110=/     [>vaCe]aaaa                     [>(vdFa)]dddd}
-112=/     [>vaCe]aaaa                     [>(veGb)]eeee
-114=/     {=25}
-118=/     [>vaCe]aaaa                     [>(veGb)]eeee (o=4)(q=16)
-120=/     vaeCevaeCe                      |: vaeCevaeCe :|
-123=/     vaeCevaeCe                      vaFdFvaFdF
-125=/     vaeCevaeCe                      veevbeveevbe
-127=/     (o=3)(q=8){=25}
-131=/     [>vaCe]aaaa                     [>(veGb)]eeee
-133=/     [>vaCe]aaaa                     [>vaCe]aaaa
-135=/     [>vaCe]aaaa                     [>vaCe]aa[>vaCe]aa
-137=/     [vaCea]_[vaCea]_                <![vaCea]~~~~~~~>
-
 {{o}}{ [vxx] }
 {{p}}{ <.vxx> }
+
+((time-sig=2/4))
+#1
+0 =/       ____                            baGa (o=5)
+2 =/ |:{10 c~__dcvbc                       e~__feDe
+4 =/       baGabaGa                   }{12 <!^c~~~>a_^c_
+6 =/       [>ga]b_[Fa]_[eg]_[Fa]_          [>ga]b_[Fa]_[eg]_[Fa]_
+8 =/       [>ga]b_[Fa]_[eg]_[DF]_     } /1 e~~~(vbaGa) :|
+10=/ /2    e~~~          |:{13 [ce]_[df]_  [eg]_[eg]_agfe
+13=/       [[<!d~~~>|vb~vg~]][ce]_[df]_    [eg]_[eg]_agfe
+15=/       [vbd]~~~[vac]_[vbd]_            [ce]_[ce]_fedc
+17=/       (v[[<!b~~~>|G~e~]])[vac]_[vbd]_ [ce]_[ce]_fedc
+19=/       (v[bG]~~~)(o=4)}baGa(o=5){=10}  {14 <!^c~~~>a_b_
+24=/       ^c_b_a_G_                       a_e_f_d_
+26=/       c~~~(q=32)(v<tb~~~~~>ab)(q=16)  va~~~} :||: {11 {{o}}(a_b_
+29=/       <!^C~~~>a_b_                    ^C_b_a_G_
+31=/       F_G_a_b_                        G_e_a_b_
+33=/       <!^C~~~>a_b_                    ^C_b_a_G_
+35=/       F_b_G_e_                        a~~~)} :||: (^CdC)b
+38=/       abaGFaGF                        fFGfCDfC
+40=/       FfFGaGab                        (^CcCcCdC)b
+42=/       abaGFaGF                        eFGeCDeC
+44=/       DeFDcCDc                        C~~~   :||: edCvb
+47=/       vavbCdeFGa                      aGFeedCvb
+49=/       vavbCdeFGa                      [>a]A~b_edCvb
+51=/       vavbCdeFGa                      aGFeedCvb
+53=/       CevaCvbd(vGb                    a~~~)(^CdC)b
+55=/       abaGFaGF                        fFGfCDfC
+57=/       FfFGaGab                        (^CcCcCcCvA
+59=/       dCdCdCdC                        dC)baGabG
+61=/       ab^CFfFGf                       F~~~   :||: {=11}
+72=/       :||: (o=4)baGa(o=5){=10}{=12}e~~~ :||: {=13}baGa(o=5){=10}{=14} :||: {{p}}(ab
+99=/       <!^C>__ab                       ^CbaG
+101=/      FGab                            Geab
+103=/      <!^C>__ab                       ^CbaG
+105=/      FbGe                          ) [vaa]~~~ :| [C^C]~~^C
+108=/ {15  [>Cea]<!^C~~~~~~~>              [>Cea]<!^C~~~~~~~>
+110=/      (^dCvbCdCvbC)                   <![Fa^d]~~~~~~~>}
+112=/      |: [>^d]<.[ea^C]>_ :|3          [eGb]~~~~~^e~
+114=/      {=15}
+118=/      [>^d][ea^C]~~~~~~~              |: [>^C]<.[eGb]>_ :|3
+120=/      a~~~[>ea]^C~~^C                 |: [>ea]<!^C~~~~~~~> :|
+123=/      (^dCvbCdCvbC)                   ^d~~~~~~~
+125=/      |: [>^d]<![ea^C]>_ :|3          b~~~~~^e~
+127=/      {=15}
+131=/      [>^d][ea^C]~~~~~~~              |: [>^C]<.[eGb]>_ :|3
+133=/      [vaCea]~~~~~{{o}}(^C~           a~~~~~^e~
+135=/      a~~~~~^C~                       a_^C_a_^e_
+137=/      a___)[vaCea]___                 <![vaCea]~~~~~~~>
+
+#2(q=8)
+0 =/       __                              __
+2 =/ |:{20 va[ce][ce][ce]                  va[ce][ce][ce]
+4 =/       va[ce]va[ce]               }{22 va[ce][ce][ce]
+6 =/       (ve[b^e][b^e][b^e]              e[b^e][b^e][b^e]
+8 =/       e[b^e]vbb                  )}/1 ve~__    :|
+10=/ /2    ve~            |:{23__          vccvee
+13=/       g~__                            vccvee
+15=/       g~__                            vvavavcc
+17=/       e~__                            vvavavcc
+19=/       e~}__{=20}                  {24 vf[vaD][vaD][vaD]
+24=/       (ve[a^e]d[fb]                   c[ea]d[fb]
+26=/       [ea][ea][eG][eG]                [vaa]~)} :||: {21 __ (o=3)
+29=/       [>vaCe]aaaa                     [>vaCe]aaaa
+31=/       [>(vdFa)]dd[>(vDFa)]DD          [>(veGb)]eeee
+33=/       [>vaCe]aaaa                     [>vaCe]aaaa
+35=/       [>(vdFa)]dd[>(veGb)]ee          va~}     :||: __
+38=/       F[a^C][a^C][a^C]                G[b^C][b^C][b^C]
+40=/       F[a^C][a^C][a^C]                f[G^C][G^C][G^C]
+42=/       F[a^C][a^C][a^C]                G[^C^e][^C^e][^C^e]
+44=/       G[^D^F][^D^F][^D^F]             [^C^e]~  :||: __ (o=4)
+47=/       va[Ce][Ce][Ce]                  vb[de]vG[de]
+49=/       va[Ce][Ce][Ce]                  ve[vGd][vGd][vGd]
+51=/       va[Ce][Ce][Ce]                  vb[de]vG[de]    (o=3)
+53=/       aFde                            vaa__
+55=/       F[a^C][a^C][a^C]                G[b^C][b^C][b^C]
+57=/       F[a^C][a^C][a^C]                C[G^C][g^C][F^C]
+59=/       vb[Fb][Fb][Fb]                  vb[Gb][Gb][Gb]
+61=/       C[Fa]C[Gb]                      [Fa]~    :||: {=21}
+72=/       :||: (o=4)__{=20}{=22}ve~ :||: {=23}__{=20}{=24} :||: {=21} :| aa
+108=/ {25  [>vaCe]aaaa                     [>vaCe]aaaa
+110=/      [>vaCe]aaaa                     [>(vdFa)]dddd}
+112=/      [>vaCe]aaaa                     [>(veGb)]eeee
+114=/      {=25}
+118=/      [>vaCe]aaaa                     [>(veGb)]eeee (o=4)(q=16)
+120=/      vaeCevaeCe                      |: vaeCevaeCe :|
+123=/      vaeCevaeCe                      vaFdFvaFdF
+125=/      vaeCevaeCe                      veevbeveevbe
+127=/      (o=3)(q=8){=25}
+131=/      [>vaCe]aaaa                     [>(veGb)]eeee
+133=/      [>vaCe]aaaa                     [>vaCe]aaaa
+135=/      [>vaCe]aaaa                     [>vaCe]aa[>vaCe]aa
+137=/      [vaCea]_[vaCea]_                <![vaCea]~~~~~~~>

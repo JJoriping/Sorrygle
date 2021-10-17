@@ -2,7 +2,7 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
-import { Sorrygle } from ".";
+import { Sorrygle } from "./index";
 
 const ROOT = resolve(__dirname, "..");
 const PACKAGE = JSON.parse(readFileSync(`${ROOT}/package.json`).toString());
@@ -18,27 +18,33 @@ function main(...args:string[]):void{
   const command = `${Color.YELLOW}sorrygle${Color.DEFAULT}`;
   const options:{
     'file'?: string,
-    'stdin': string[],
-    'out': string
+    'ast'?: string,
+    'raw': string[],
+    'out': string,
   } = {
-    stdin: [],
+    raw: [],
     out: "output.mid"
   };
+  let outSet = false;
   if(!args.length){
     console.log([
       head + " ┐",
       `┌${"─".repeat(head.length - Color.BLUE.length - Color.DEFAULT.length)}┘`,
-      `├ To compile from stdin,`,
-      `│ └ ${command} "cege[vcc]~~~"`,
-      "|",
+      `├ To compile from a string argument,`,
+      `│ └ ${command} "cege[c^c]~~~"`,
+      "│",
+      `├ ${g("--ast")} To retrieve the AST of your input,`,
+      `│ ├ ${command} --ast output.json "cege[c^c]~~~"`,
+      `│ └ If you omit --out, you won't get a MIDI file.`,
+      "│",
       `├ ${g("--file")} To compile from a file,`,
       `│ ├ ${command} --file input.srg`,
       `| └ or shortly -f`,
-      "|",
+      "│",
       `├ ${g("--out")}  To determine the output file,`,
       `│ ├ ${command} --file input.srg --out output.mid`,
-      `| └ or shortly -o`,
-      "|",
+      `│ └ or shortly -o`,
+      "│",
       `└ Got a problem? 👉 ${PACKAGE['bugs']['url']}`
     ].join('\n'));
     process.exit(1);
@@ -50,24 +56,36 @@ function main(...args:string[]):void{
         i++;
         break;
       case "-o": case "--out":
+        outSet = true;
         options.out = args[i + 1];
         i++;
         break;
+      case "--ast":
+        options.ast = args[i + 1];
+        i++;
+        break;
       default:
-        options.stdin.push(args[i]);
+        options.raw.push(args[i]);
     }
   }
-  let buffer:Buffer;
+  let input:string;
 
   if(options.file){
-    console.log(`📥 Reading from ${Color.YELLOW}${options.file}${Color.DEFAULT}...`);
-    buffer = Sorrygle.compile(readFileSync(options.file).toString());
+    console.log(`📥 Reading from   ${Color.YELLOW}${options.file}${Color.DEFAULT}...`);
+    input = readFileSync(options.file).toString();
   }else{
-    console.log(`📥 Reading from ${Color.YELLOW}stdin${Color.DEFAULT}...`);
-    buffer = Sorrygle.compile(options.stdin.join(''));
+    console.log(`📥 Reading from   ${Color.YELLOW}stdin${Color.DEFAULT}...`);
+    input = options.raw.join('');
   }
-  console.log(`📤 Writing to   ${Color.YELLOW}${options.out}${Color.DEFAULT}...`);
-  writeFileSync(options.out, buffer);
+  if(options.ast){
+    console.log(`📤 Writing AST to ${Color.YELLOW}${options.ast}${Color.DEFAULT}...`);
+    writeFileSync(options.ast, JSON.stringify(Sorrygle.parse(input), null, 2));
+    if(!outSet){
+      return;
+    }
+  }
+  console.log(`📤 Writing to     ${Color.YELLOW}${options.out}${Color.DEFAULT}...`);
+  writeFileSync(options.out, Sorrygle.compile(input));
 }
 function g(text:string):string{
   return `${Color.GREEN}[${text}]${Color.DEFAULT}`;

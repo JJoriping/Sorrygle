@@ -53,6 +53,7 @@ Now I'm happy 😊.
 import { writeFileSync } from "fs";
 import { Sorrygle } from "sorrygle";
 
+console.log(Sorrygle.parse("cege[c^c]~~~")); // This prints the AST of the input.
 writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 ```
 or
@@ -60,6 +61,7 @@ or
 const { writeFileSync } = require("fs");
 const { Sorrygle } = require("sorrygle");
 
+console.log(Sorrygle.parse("cege[c^c]~~~")); // This prints the AST of the input.
 writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 ```
 3. Open `output.mid`
@@ -107,13 +109,13 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `<tc>`           | Trill                 | Play the note as a trill (of interval `T16`).
 | `<+cegⓘ>`       | Crescendo             | (1≤ⓘ≤100) Play all notes in the bracket with the increasing volume from the current volume to ⓘ. |
 | `<-gecⓘ>`       | Decrescendo           | (1≤ⓘ≤100) Play all notes in the bracket with the decreasing volume from the current volume to ⓘ. |
-| `<pⓝc~ⓝ~~ⓝ>`  | Pitch bend            | (-1≤ⓝ≤1) Play all notes in the bracket with the plan modifying the pitch bend linearly. |
-| `\|:`            | Open repeat           | Set the start point of a repetition. Currently this is compulsory for a repetition unlike musical scores due to a technical issue.
+| `<p(ⓝ)c~(ⓝ)~~(ⓝ)>` | Pitch bend | (-1≤ⓝ≤1) Play all notes in the bracket with the plan modifying the pitch bend linearly. |
+| `\|:`            | Open repeat           | Set the start point of a repetition.
 | `:\|ⓘ`          | Close repeat          | (1≤ⓘ) Set the end point of a repetition. You can omit ⓘ if you want to repeat the closed interval just once. | 1 |
 | `/1`             | Prima volta           | Play the following notes only if it's the first time to be played.
 | `/2`             | Seconda volta         | Play the following notes after one repetition, skipping the notes of the corresponding prima volta. Since currently only prima and seconda voltas are supported, you can omit this.
 | `{ⓘceg}`        | Group declaration     | Name the set of notes ⓘ.
-| `{=ⓘ}`          | Group reference       | Refer the set ⓘ. Repeats are ignored.
+| `{=ⓘ}`          | Group reference       | Refer the set ⓘ.
 | `=/`             | Head comment          | Ignore the text before this.
 | `/=`             | Tail comment          | Ignore the text after this.
 
@@ -140,51 +142,66 @@ You can define your own range like the example below.
 - You can put `d` or `dd` at the front of each number above for (double-)dotted notes.
 - `Tⓘ`: ⓘ-tick-long note. Note that `♩ = T128`.
 
-### Instrument
-You can put one of the emojis below for ⓘ of `(p=ⓘ)`.
-| Emoji | Corresponding number | Name |
-|-------|----------------------|------|
-| 🎹 | 0  | Acoustic Grand Piano |
-| 🪗 | 21 | Accordion |
-| 🎸 | 24 | Acoustic Guitar (nylon) |
-| 🎻 | 40 | Violin |
-| 🎤 | 54 | Synth Voice |
-| 🎺 | 56 | Trumpet |
-| 🎷 | 64 | Soprano Sax |
-| 🪕 | 105 | Banjo |
-| 🥁 | 118 | Synth Drum |
+### Emoji Declaration
+You can let a Unicode emoji perform as a local configuration which is like `(...=...)`.
+```sorrygle
+((🔊=(v=100)))
+((🔈=(v=1)))
+
+#1 (🔈)cdefgab(🔊)^c~~~~~~~ /= This is equivalent to
+#1 (v=1)cdefgab(v=100)^c~~~~~~~
+```
+
+There are some default emoji declarations below.
+| Emoji | Same as... |
+|-------|------------|
+| 🎹 | `(p=0)` |
+| 🪗 | `(p=21)` |
+| 🎸 | `(p=24)` |
+| 🎻 | `(p=40)` |
+| 🎤 | `(p=54)` |
+| 🎺 | `(p=56)` |
+| 🎷 | `(p=64)` |
+| 🪕 | `(p=105)` |
+| 🥁 | `(p=118)` |
+| 𝅝 | `(q=1)` |
+| 𝅗𝅥 | `(q=2)` |
+| 𝅘𝅥 or ♩ | `(q=4)` |
+| 𝅘𝅥𝅮 or ♪ | `(q=8)` |
+| 𝅘𝅥𝅯 or ♬ | `(q=16)` |
+| 𝅘𝅥𝅰 | `(q=32)` |
 
 ## Example
 🎵 Wolfgang Amadeus Mozart - Turkish March (first 27 bars)
 ```sorrygle
 ((time-sig=2/4))
 #1
-0 =/      ____                         {1 baGa (o=5)
-2 =/ |:   c~__dcvbc                       e~__feDe
-4 =/      baGabaGa                      } <!^c~~~>a_^c_
-6 =/      [>ga]b_[Fa]_[eg]_[Fa]_          [>ga]b_[Fa]_[eg]_[Fa]_
-8 =/      [>ga]b_[Fa]_[eg]_[DF]_       /1 e~~~(vbaGa)         :|
-10=/ /2   e~~~           |: [ce]_[df]_    [eg]_[eg]_agfe
-13=/      [[<!d~~~>|vb~vg~]][ce]_[df]_    [eg]_[eg]_agfe
-15=/      [vbd]~~~[vac]_[vbd]_            [ce]_[ce]_fedc
-17=/      (v[[<!b~~~>|G~e~]])[vac]_[vbd]_ [ce]_[ce]_fedc
-19=/      (v[bG]~~~)(o=4){=1}             <!^c~~~>a_b_
-24=/      ^c_b_a_G_                       a_e_f_d_
-26=/      c~~~(q=32)(v<tb~~~~~>ab)(q=16)  va~~~               :|
+0 =/       ____                            baGa (o=5)
+2 =/ |:{10 c~__dcvbc                       e~__feDe
+4 =/       baGabaGa                   }{12 <!^c~~~>a_^c_
+6 =/       [>ga]b_[Fa]_[eg]_[Fa]_          [>ga]b_[Fa]_[eg]_[Fa]_
+8 =/       [>ga]b_[Fa]_[eg]_[DF]_     } /1 e~~~(vbaGa) :|
+10=/ /2    e~~~          |:{13 [ce]_[df]_  [eg]_[eg]_agfe
+13=/       [[<!d~~~>|vb~vg~]][ce]_[df]_    [eg]_[eg]_agfe
+15=/       [vbd]~~~[vac]_[vbd]_            [ce]_[ce]_fedc
+17=/       (v[[<!b~~~>|G~e~]])[vac]_[vbd]_ [ce]_[ce]_fedc
+19=/       (v[bG]~~~)(o=4)}baGa(o=5){=10}  {14 <!^c~~~>a_b_
+24=/       ^c_b_a_G_                       a_e_f_d_
+26=/       c~~~(q=32)(v<tb~~~~~>ab)(q=16)  va~~~} :|
 
-#2(q=8)
-0 =/      __                           {2 __
-2 =/ |:   va[ce][ce][ce]                  va[ce][ce][ce]
-4 =/      va[ce]va[ce]                  } va[ce][ce][ce]
-6 =/      (ve[b^e][b^e][b^e]              e[b^e][b^e][b^e]
-8 =/      e[b^e]vbb                    /1 e~__)               :|
-10=/ /2   ve~            |: __            vccvee
-13=/      g~__                            vccvee
-15=/      g~__                            vvavavcc
-17=/      e~__                            vvavavcc
-19=/      e~{=2}                          vf[vaD][vaD][vaD]
-24=/      (ve[a^e]d[fb]                   c[ea]d[fb]
-26=/      [ea][ea][eG][eG]                [vaa]~)             :|
+#2(♪)
+0 =/       __                              __
+2 =/ |:{20 va[ce][ce][ce]                  va[ce][ce][ce]
+4 =/       va[ce]va[ce]               }{22 va[ce][ce][ce]
+6 =/       (ve[b^e][b^e][b^e]              e[b^e][b^e][b^e]
+8 =/       e[b^e]vbb                  )}/1 ve~__    :|
+10=/ /2    ve~            |:{23__          vccvee
+13=/       g~__                            vccvee
+15=/       g~__                            vvavavcc
+17=/       e~__                            vvavavcc
+19=/       e~}__{=20}                  {24 vf[vaD][vaD][vaD]
+24=/       (ve[a^e]d[fb]                   c[ea]d[fb]
+26=/       [ea][ea][eG][eG]                [vaa]~)} :|
 ```
 
 ## License

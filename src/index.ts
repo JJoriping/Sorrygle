@@ -1,39 +1,470 @@
 import MIDI = require("midi-writer-js");
+import { Grammar, Parser } from "nearley";
+import { AST } from "./AST";
+import grammar from "./grammar";
+import SemanticError from "./SemanticError";
+import { ControllerType, GlobalConfiguration, MIDIOptionModifier, TrackSet } from "./TrackSet";
+import { getTickDuration, toTick, transpose } from "./utils";
 
-type Table<T> = {
-  [key:string]: T
-};
-type GlobalSet = {
-  'fermataLength': number
-};
-type TrackSet = {
-  'id': number,
-  'data': MIDI.Track,
-  'pitchBendData'?: MIDI.Track,
-  'pitchBendPosition'?: number,
-  'octave': number,
-  'quantization': MIDI.Duration,
-  'velocity': number,
-  'transpose': number,
-  'position': number,
-  'wait': MIDI.Duration[],
-  'repeat'?: {
-    'start': number,
-    'count': number,
-    'current': number,
-    'closed'?: boolean
-  },
-  'children': TrackSet[]
-};
-enum DiacriticType{
-  INVALID,
-  FERMATA,
-  STACCATO,
-  SFORZANDO,
-  TRILL,
-  CRESCENDO,
-  DECRESCENDO,
-  PITCH_BEND
+const RESOLUTION = 8;
+const STACCATO_LENGTH = 16;
+const GRACE_LENGTH = 8;
+const TRILL_INTERVAL = 16;
+const REGEXP_UDR_X = /^x([-\d]+)\/([-\d]+)$/;
+
+export class Sorrygle{
+  private static readonly DEFAULT_EMOJI:{ [key:string]: AST.LocalConfiguration } = {
+    '𝅝': { l: 0, type: "local-configuration", key: "q", value: "1" },
+    '𝅗𝅥': { l: 0, type: "local-configuration", key: "q", value: "2" },
+    '𝅘𝅥': { l: 0, type: "local-configuration", key: "q", value: "4" },
+    '𝅘𝅥𝅮': { l: 0, type: "local-configuration", key: "q", value: "8" },
+    '𝅘𝅥𝅯': { l: 0, type: "local-configuration", key: "q", value: "16" },
+    '𝅘𝅥𝅰': { l: 0, type: "local-configuration", key: "q", value: "32" },
+    '♩': { l: 0, type: "local-configuration", key: "q", value: "4" },
+    '♪': { l: 0, type: "local-configuration", key: "q", value: "8" },
+    '♬': { l: 0, type: "local-configuration", key: "q", value: "16" },
+
+    '🎹': { l: 0, type: "local-configuration", key: "p", value: "0" },
+    '🪗': { l: 0, type: "local-configuration", key: "p", value: "21" },
+    '🎸': { l: 0, type: "local-configuration", key: "p", value: "24" },
+    '🎻': { l: 0, type: "local-configuration", key: "p", value: "40" },
+    '🎤': { l: 0, type: "local-configuration", key: "p", value: "54" },
+    '🎺': { l: 0, type: "local-configuration", key: "p", value: "56" },
+    '🎷': { l: 0, type: "local-configuration", key: "p", value: "64" },
+    '🪕': { l: 0, type: "local-configuration", key: "p", value: "105" },
+    '🥁': { l: 0, type: "local-configuration", key: "p", value: "118" }
+  };
+  private static readonly GRAMMAR = Grammar.fromCompiled(grammar);
+
+  private static prettifyError(preprocessedData:string, e:any):never{
+    if(e instanceof SemanticError){
+      const text = preprocessedData.substr(Math.max(0, e.index - 10), 30);
+
+      e.message += `\n${" ".repeat(Math.min(10, e.index))}↓ here\n${text.replace(/\r?\n/g, " ")}`;
+    }else if(e instanceof Error && e.message.startsWith("Syntax error")){
+      const chunk = e.message.split(/\n+/g);
+      const out = [
+        ...chunk.slice(0, 3),
+        chunk[3].slice(0, chunk[3].indexOf(".") + 1) + " Expected characters were:"
+      ];
+      for(const v of chunk){
+        const w = v.match(/^A (.+) based on:$/);
+
+        if(!w) continue;
+        const o = `• ${w[1]}`;
+
+        if(!out.includes(o)) out.push(o);
+      }
+      e.message = out.join('\n');
+    }
+    throw e;
+  }
+  private static preprocess(data:string):string{
+    return data.replace(/(.*)=\/|\/=(.*)/mg, "");
+  }
+  public static compile(data:string):Buffer{
+    const preprocessedData = Sorrygle.preprocess(data);
+    const R = new Sorrygle(preprocessedData);
+
+    try{
+      R.parse();
+      return R.compile();
+    }catch(e){
+      Sorrygle.prettifyError(preprocessedData, e);
+    }
+  }
+  public static parse(data:string):AST.Tree{
+    const preprocessedData = Sorrygle.preprocess(data);
+    const parser = new Parser(Sorrygle.GRAMMAR);
+
+    try{
+      parser.feed(preprocessedData).finish();
+      return parser.results[0];
+    }catch(e){
+      Sorrygle.prettifyError(preprocessedData, e);
+    }
+  }
+
+  private readonly data:string;
+  private parser:Parser;
+  private globalConfiguration:GlobalConfiguration;
+  private tracks:TrackSet[];
+  private groups:Map<number, AST.Stackable[]>;
+  private emojis:Map<string, AST.LocalConfiguration>;
+  private udrs:Map<string, AST.Stackable[]>;
+
+  private _track?:TrackSet;
+  private get track():TrackSet{
+    let R = this._track;
+
+    if(!R){
+      R = new TrackSet(1);
+      this.tracks.push(R);
+      this._track = R;
+    }
+    return R;
+  }
+
+  constructor(data:string){
+    this.data = data;
+    this.parser = new Parser(Sorrygle.GRAMMAR);
+    this.globalConfiguration = {
+      track: new MIDI.Track(),
+      position: 0,
+      fermataLength: 2
+    };
+    this.tracks = [];
+    this.groups = new Map();
+    this.emojis = new Map();
+    this.udrs = new Map();
+  }
+  private parseRestrictedNotations(list:Array<AST.RestrictedNotation|AST.Rest>, modifiers:MIDIOptionModifier[] = [], target:TrackSet = this.track):number{
+    let R = 0;
+
+    for(const v of list) switch(v.type){
+      case "key": case "chord": R += target.add(v, modifiers); break;
+      case "rest": R += target.rest(); break;
+      case "tie": R += target.tie(v.l); break;
+      case "diacritic":{
+        const innerListWithTies = v.value.filter(v => v !== null && typeof v === "object") as AST.RestrictedNotation[];
+        const innerList:AST.RestrictedNotation[] = [];
+        const durations = new Map<number, number>();
+        let current:AST.RestrictedNotation|undefined;
+        let modifier:MIDIOptionModifier;
+
+        if(v.name === "." || v.name === "~" || v.name === "t") for(const w of innerListWithTies) switch(w.type){
+          case "key": case "chord": case "diacritic":
+            current = w;
+            durations.set(w.l, getTickDuration(target.quantization));
+            innerList.push(w);
+            break;
+          case "tie":{
+            if(!current) throw new SemanticError(w.l, "Malformed tie");
+            const data = durations.get(current.l);
+            if(data === undefined) throw Error("Unknown notation");
+
+            durations.set(current.l, data + getTickDuration(target.quantization));
+          } break;
+        }else{
+          innerList.push(...innerListWithTies);
+        }
+        switch(v.name){
+          case ".": modifier = (o, caller, _, l) => {
+            const originalLength = durations.get(l)!;
+
+            if(originalLength <= STACCATO_LENGTH){
+              return;
+            }
+            o.duration = [ toTick(STACCATO_LENGTH) ];
+            caller.rest(originalLength - STACCATO_LENGTH, true);
+          }; break;
+          case "~": modifier = (o, _, __, l) => o.duration = [
+            // NOTE This may cause a synchronization error if fermataLength is not an integer.
+            toTick(this.globalConfiguration.fermataLength * durations.get(l)!)
+          ]; break;
+          case "!": modifier = o => o.velocity = 100; break;
+          case "t": modifier = (o, caller, position, l) => {
+            let length = durations.get(l)!;
+            let count = 0;
+
+            while(length >= TRILL_INTERVAL){
+              let pitch:MIDI.Pitch[];
+
+              if(count++ % 2){
+                pitch = o.pitch.map(w => transpose(w, 0, true));
+              }else{
+                if(o.pitch.find(w => w.startsWith("x"))) throw Error("Unresolved x");
+                pitch = o.pitch as MIDI.Pitch[];
+              }
+              R += caller.addRaw(modifiers.reduce((pw, w) => {
+                w(pw, caller, position, l);
+                return pw;
+              }, {
+                ...o,
+                pitch,
+                duration: [ toTick(TRILL_INTERVAL) ],
+                wait: count === 1 ? o.wait : []
+              }));
+              length -= TRILL_INTERVAL;
+            }
+            if(length > 0) caller.rest(length, true);
+            o.duration = [];
+          }; break;
+          case "+": case "-":{
+            const length = this.parseRestrictedNotations(innerList, modifiers, target.dummy);
+            const start = target.velocity;
+            const end = v.velocity;
+            let startPosition:number;
+
+            if(v.name === "+" && start >= end) throw new SemanticError(v.l, "Useless crescendo");
+            if(v.name === "-" && end >= start) throw new SemanticError(v.l, "Useless decrescendo");
+            modifier = (o, _, position) => {
+              if(startPosition === undefined){
+                startPosition = position;
+              }
+              o.velocity = start + (end - start) * (position - startPosition) / length;
+            };
+          }; break;
+          case "p":{
+            const bends:[offset:number, value:number][] = [];
+            let first = true;
+            let offset = 0;
+            let prevOffset = offset;
+            let prevValue:number|undefined;
+            
+            for(const w of v.value){
+              if(w === null) continue;
+              if(w.type === "decimals"){
+                if(prevValue !== undefined) for(let i = prevOffset; i < offset; i += RESOLUTION){
+                  bends.push([ i, prevValue + (w.value - prevValue) * (i - prevOffset) / (offset - prevOffset) ]);
+                }
+                bends.push([ offset, w.value ]);
+                prevOffset = offset;
+                prevValue = w.value;
+              }else{
+                offset += this.parseRestrictedNotations([ w ], modifiers, target.dummy);
+              }
+            }
+            modifier = (_, caller, position) => {
+              if(!first) return;
+              for(const bend of bends){
+                caller.addPitchBend(position + bend[0], bend[1]);
+              }
+              first = false;
+            };
+          } break;
+        }
+        R += this.parseRestrictedNotations(
+          innerList,
+          [ ...modifiers, modifier ],
+          target
+        );
+        if(v.name === "+" || v.name === "-"){
+          target.velocity = v.velocity;
+        }
+        if(v.name === "p"){
+          target.addPitchBend(null, 0);
+        }
+      } break;
+    }
+    return R;
+  }
+  private parseStackables(list:AST.Stackable[], modifiers:MIDIOptionModifier[] = [], target:TrackSet = this.track):number{
+    let R = 0;
+
+    for(let i = 0; i < list.length; i++){
+      const v = list[i];
+      if(!v) continue;
+
+      switch(v.type){
+        case "local-configuration": switch(v.key){
+          case "o": target.octave = parseInt(v.value); break;
+          case "p": target.setProgram(parseInt(v.value)); break;
+          case "q": target.quantization = v.value as MIDI.Duration; break;
+          case "s": target.setController(ControllerType.SUSTAIN_PEDAL, parseInt(v.value)); break;
+          case "t": target.transpose = parseInt(v.value); break;
+          case "v": target.velocity = parseInt(v.value); break;
+          default: throw new SemanticError(v.l, `Unhandled local configuration: ${v.key}`);
+        } break;
+        case "notation":{
+          const w = v.value;
+          const actualModifiers = [ ...modifiers ];
+
+          if(v.grace){
+            const graceModifiers:MIDIOptionModifier[] = [
+              ...modifiers,
+              o => {
+                o.graced = true;
+                o.duration = [ toTick(GRACE_LENGTH) ];
+              }
+            ];
+            let totalLength = 0;
+
+            for(const g of v.grace.value){
+              if(!g) continue;
+              switch(g.type){
+                case "key": case "chord":
+                  R += target.add(g, graceModifiers);
+                  totalLength += GRACE_LENGTH;
+                  break;
+                case "range":{
+                  const length = this.parseRange(g, graceModifiers, target);
+
+                  R += length;
+                  totalLength += length;
+                } break;
+              }
+            }
+            actualModifiers.push(o => {
+              const value = getTickDuration(o.duration) - totalLength;
+
+              if(value < 1) throw new SemanticError(v.l, "Too long graces");
+              o.duration = [ toTick(value) ];
+            });
+          }
+          R += this.parseRestrictedNotations([ w ], actualModifiers, target);
+        } break;
+        case "rest": R += target.rest(); break;
+        case "range": R += this.parseRange(v, modifiers, target); break;
+        case "parallelization":{
+          for(let i = 1; i < v.values.length; i++){
+            this.parseStackables(v.values[i], modifiers, target.childAt(v.l, i));
+          }
+          R += this.parseStackables(v.values[0], modifiers, target);
+        } break;
+        case "group-declaration":
+          if(this.groups.has(v.key)) throw new SemanticError(v.l, `Already declared group: ${v.key}`);
+          this.groups.set(v.key, v.value);
+          list.splice(i, 1, ...v.value);
+          i--;
+          break;
+        case "group-reference":{
+          const group = this.groups.get(v.key);
+
+          if(!group) throw new SemanticError(v.l, `No such group: ${v.key}`);
+          list.splice(i, 1, ...group);
+          i--;
+        } break;
+        case "emoji-reference":{
+          const emoji = this.emojis.get(v.key) || Sorrygle.DEFAULT_EMOJI[v.key];
+
+          if(!emoji) throw new SemanticError(v.l, `No such emoji: ${v.key}`);
+          list.splice(i, 1, emoji);
+          i--;
+        } break;
+      }
+    }
+    return R;
+  }
+  private parseRange(range:AST.Range, modifiers:MIDIOptionModifier[], target:TrackSet = this.track):number{
+    let modifier:MIDIOptionModifier;
+
+    if(range.udr){
+      const data = this.udrs.get(range.key);
+
+      if(!data) throw new SemanticError(range.l, `Unknown UDR: ${range.key}`);
+      modifier = (o, caller) => {
+        let wait = o.wait;
+
+        this.parseStackables(data, [ ...modifiers, p => {
+          const pitches:MIDI.Pitch[] = [];
+
+          for(let i = 0; i < p.pitch.length; i++){
+            if(!p.pitch[i].startsWith("x")){
+              pitches.push(p.pitch[i] as MIDI.Pitch);
+              continue;
+            }
+            const chunk = p.pitch[i].match(REGEXP_UDR_X);
+
+            if(!chunk) throw Error(`Malformed x: ${p.pitch[i]}`);
+            for(const w of o.pitch){
+              pitches.push(transpose(w, 12 * parseInt(chunk[1]) + parseInt(chunk[2])));
+            }
+          }
+          p.wait.unshift(...wait);
+          p.pitch = pitches;
+          wait = [];
+        }], caller);
+        o.duration = [];
+      };
+    }else switch(range.key){
+      case "^": modifier = o => o.pitch = o.pitch.map(w => transpose(w, 12)); break;
+      case "v": modifier = o => o.pitch = o.pitch.map(w => transpose(w, -12)); break;
+      case "3": return target.wrapTuplet(range.l, 3, () => (
+        this.parseStackables(range.value, modifiers, target)
+      ));
+      case "5": return target.wrapTuplet(range.l, 5, () => (
+        this.parseStackables(range.value, modifiers, target)
+      ));
+      case "7": return target.wrapTuplet(range.l, 7, () => (
+        this.parseStackables(range.value, modifiers, target)
+      ));
+      case "s":{
+        let R:number;
+
+        target.setController(ControllerType.SUSTAIN_PEDAL, 127);
+        R = this.parseStackables(range.value, modifiers, target);
+        target.setController(ControllerType.SUSTAIN_PEDAL, 0);
+        return R;
+      }
+      default: throw new SemanticError(range.l, `Unhandled range key: ${range.key}`);
+    }
+    return this.parseStackables(range.value, [ ...modifiers, modifier ], target);
+  }
+
+  public compile():Buffer{
+    const tracks = [ this.globalConfiguration.track ];
+
+    for(const v of this.tracks){
+      tracks.push(...v.out());
+    }
+    return Buffer.from(new MIDI.Writer(tracks).buildFile());
+  }
+  public parse():void{
+    this.parser.feed(this.data).finish();
+    if(this.parser.results.length > 1){
+      console.warn(`Ambiguity detected: ${this.parser.results.length}`);
+    }
+    if(this.parser.results.length < 1){
+      throw Error("Incomplete data");
+    }
+    const result:AST.Tree = JSON.parse(JSON.stringify(this.parser.results[0]));
+
+    for(let i = 0; i < result.length; i++){
+      const v = result[i];
+      if(!v) continue;
+      switch(v.type){
+        case "global-configuration":
+          switch(v.key){
+            case "bpm":{
+              this.track.wrapGlobalConfiguration(v.l, this.globalConfiguration, track => {
+                track.setTempo(parseFloat(v.value));
+              });
+            } break;
+            case "time-sig":{
+              const [ n, d ] = v.value.split('/');
+
+              this.track.wrapGlobalConfiguration(v.l, this.globalConfiguration, track => {
+                track.setTimeSignature(parseInt(n), parseInt(d));
+              });
+            } break;
+            case "fermata": this.globalConfiguration.fermataLength = parseFloat(v.value); break;
+            default: throw new SemanticError(v.l, `Unhandled global configuration: ${v.key}`);
+          }
+          break;
+        case "channel-declaration":{
+          const baby = new TrackSet(v.id);
+
+          this._track = baby;
+          this.tracks.push(baby);
+        } break;
+        case "udr-definition":
+          if(this.udrs.has(v.name)) throw new SemanticError(v.l, `Already declared UDR: ${v.name}`);
+          this.udrs.set(v.name, v.value);
+          break;
+        case "repeat-open": this.track.repeatOpen(v.l); break;
+        case "repeat-close": result.splice(i + 1, 0, ...this.track.repeatClose(v.l, v.count)); break;
+        case "volta":
+          // Voltas are processed in TrackSet
+          break;
+        case "emoji-declaration":
+          if(this.emojis.has(v.key)) throw new SemanticError(v.l, `Already declared emoji: ${v.key}`);
+          this.emojis.set(v.key, v.value);
+          break;
+        case "local-configuration":
+        case "range":
+        case "notation":
+        case "group-declaration":
+        case "group-reference":
+        case "parallelization":
+        case "emoji-reference":
+        case "rest":
+          this.parseStackables([ v ]);
+          break;
+      }
+      this.track.addSnapshot(v);
+    }
+  }
 }
 {
   const _ProgramChangeEvent = MIDI.ProgramChangeEvent;
@@ -48,710 +479,4 @@ enum DiacriticType{
       this.data[1] += options.channel - 1;
     }
   };
-}
-const getTickDuration = (MIDI as any)['Utils']['getTickDuration'] as (duration:string|string[]) => number;
-
-export class Sorrygle{
-  private static readonly NOTES = {
-    c: "C", d: "D", e: "E", f: "F", g: "G", a: "A", b: "B",
-    C: "C#", D: "D#", F: "F#", G: "G#", A: "A#",
-
-    도: "C", 레: "D", 미: "E", 파: "F", 솔: "G", 라: "A", 시: "B",
-    돗: "C#", 렛: "D#", 팟: "F#", 솘: "G#", 랏: "A#",
-    렢: "Db", 밒: "Eb", 솚: "Gb", 랖: "Ab", 싶: "Bb"
-  } as const;
-  private static readonly NOTE_SEQUENCES = [
-    'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
-  ] as const;
-  private static readonly INSTRUMENTS:Table<number> = {
-    '🎹': 0,
-    '🪗': 21,
-    '🎸': 24,
-    '🎻': 40,
-    '🎤': 54,
-    '🎺': 56,
-    '🎷': 64,
-    '🪕': 105,
-    '🥁': 118
-  };
-  private static readonly REGEXP_PITCH = /^([A-G]#?)(\d+)$/;
-  private static readonly RESOLUTION = 8;
-  private static readonly GRACE_LENGTH = 8;
-  private static readonly TRILL_LENGTH = 16;
-  private static readonly INITIAL_GAS = 100000;
-
-  public static compile(data:string):Buffer{
-    const R = new Sorrygle(data);
-    
-    try{
-      R.parse();
-      return R.compile();
-    }catch(e){
-      if(e instanceof Error && e.message.startsWith("#")){
-        const [ , indexText ] = e.message.match(/^#(\d+)/)!;
-        const index = parseInt(indexText);
-        const text = R.data.substr(Math.max(0, index - 10), 30);
-
-        e.message += `\n${" ".repeat(Math.min(10, index))}↓ here\n${text.replace(/\r?\n/g, " ")}`;
-      }
-      throw e;
-    }
-  }
-  private static preprocess(data:string):string{
-    const validNotes = new RegExp(`([v^\s]*[${Object.keys(Sorrygle.NOTES).join('')}])([~\s]*)`, "g");
-    const ref:Table<string> = {};
-    const udr:Table<string> = {};
-    let R = data.replace(/(.*)=\/|\/=(.*)/mg, "");
-
-    return R
-      .replace(/\{\{([^\}]+)\}\}\s*\{([\s\S]+?)\}/g, (_, g1:string, g2:string) => {
-        // UDR 선언
-        if(g1 in udr) throw Error(`Already declared range: ${g1}`);
-        udr[g1] = g2.trim();
-        return "";
-      }).replace(/\{\{([^\}]+)\}\}\s*\(([\s\S]*?)\)/g, (_, g1:string, g2:string) => {
-        if(!udr[g1]) throw Error(`No such range: ${g1}`);
-        return g2.replace(validNotes, (_, h1:string, h2:string) => udr[g1].replace(/x/g, h1) + h2);
-      }).replace(/\{(\d+)([\s\S]+?)\}/g, (_, g1:string, g2:string) => {
-        // 그룹 선언
-        if(g1 in ref) throw Error(`Already declared group: ${g1}`);
-        ref[g1] = g2;
-        return g2;
-      }).replace(/\{=(\d+)\}/g, (_, g1:string) => {
-        // 그룹 참조
-        if(!ref[g1]) throw Error(`No such group: ${g1}`);
-        return ref[g1].replace(/\|:|:\|\d*|\/\d+/g, "");
-      }).replace(/\(p=(\D+?)\)/g, (_, g1:string) => (
-        // 이모지 악기
-        `(p=${Sorrygle.INSTRUMENTS[g1] || g1})`
-      )).replace(/\(s(?!=)([\s\S]+?)\)/g, (_, g1:string) => (
-        // 서스테인 페달
-        `(s=127)${g1}(s=0)`
-      )).replace(/\(\^([\s\S]+?)\)/g, (_, g1:string) => (
-        // 그룹 옥타브 올리기
-        g1.replace(/[A-G]/gi, "^$&")
-      )).replace(/\(v(?!=)([\s\S]+?)\)/g, (_, g1:string) => (
-        // 그룹 옥타브 내리기
-        g1.replace(/[A-G]/gi, "v$&")
-      )).replace(/\((3|5|7)([\s\S]+?)\)/g, (_, g1:string, g2:string) => (
-        // 잇단음표
-        `(q=?${g1})${g2}(q=?)`
-      ))
-    ;
-  }
-  private static transpose(v:MIDI.Pitch, amount:number, forTrill?:boolean):MIDI.Pitch{
-    if(!amount && !forTrill){
-      return v;
-    }
-    const [ , a, b ] = v.match(Sorrygle.REGEXP_PITCH)!;
-    const sequence = Sorrygle.NOTE_SEQUENCES.indexOf(a as any);
-    let newSequence = sequence + (forTrill
-      ? a === "E" || a === "B" || a.endsWith("#") ? 1 : 2
-      : amount
-    );
-    let carry = 0;
-
-    if(newSequence >= Sorrygle.NOTE_SEQUENCES.length){
-      carry++;
-      newSequence -= Sorrygle.NOTE_SEQUENCES.length;
-    }
-    if(newSequence < 0){
-      carry--;
-      newSequence += Sorrygle.NOTE_SEQUENCES.length;
-    }
-    return `${Sorrygle.NOTE_SEQUENCES[newSequence]}${parseInt(b) + carry}` as any;
-  }
-
-  private readonly data:string;
-  private globalPreset?:GlobalSet;
-  private trackPreset?:TrackSet;
-  private configurationTrack:TrackSet;
-  private tracks:TrackSet[];
-  private gas:number;
-
-  constructor(data:string){
-    this.data = Sorrygle.preprocess(data);
-    this.configurationTrack = this.createTrack(0);
-    this.tracks = [];
-    this.gas = Sorrygle.INITIAL_GAS;
-  }
-  private createTrack(id:number):TrackSet{
-    return this.trackPreset
-      ? {
-        ...this.trackPreset,
-        data: new MIDI.Track(),
-        wait: this.trackPreset.wait,
-        children: []
-      }
-      : {
-        id,
-        data: new MIDI.Track(),
-        quantization: '16',
-        octave: 4,
-        velocity: 80,
-        transpose: 0,
-        position: 0,
-        wait: [],
-        children: []
-      }
-    ;
-  }
-
-  public compile():Buffer{
-    const data = [ this.configurationTrack.data ];
-
-    for(const v of this.tracks){
-      if(v.pitchBendData) data.push(v.pitchBendData);
-      data.push(v.data, ...v.children.map(w => w.data));
-    }
-    return Buffer.from(new MIDI.Writer(data).buildFile());
-  }
-  public parse():void{
-    const global:GlobalSet = {
-      fermataLength: 2,
-      ...(this.globalPreset || {})
-    };
-    const chunk = this.data;
-    let track = this.tracks[0];
-    let inChord:'normal'|'grace'|undefined;
-    let prevNote:[notes:MIDI.Pitch[], length:MIDI.Duration[]]|undefined;
-
-    const pendingDiacritics:Array<{
-      'type': DiacriticType,
-      'notes': Array<MIDI.Options&{ 'duration': MIDI.Duration[], 'wait': MIDI.Duration[] }>,
-      'args'?: any[],
-      'argsRange'?: [number, number]
-    }> = [];
-    let parallelRange:[number, number]|undefined;
-    let pendingGrace:MIDI.Pitch[]|undefined;
-    let octaveOffset = 0;
-    let originalQuantization:MIDI.Duration|undefined;
-    let quantizationCarry = 0;
-    
-    const addNote = (i:number, breakChord?:boolean, dry?:boolean) => {
-      if(!track){
-        track = this.createTrack(1);
-        if(track.position > 0){
-          track.wait.push(`T${track.position}` as any);
-          track.position = 0;
-        }
-        this.tracks.push(track);
-      }
-      if(!prevNote) return;
-      if(inChord){
-        if(breakChord) throw Error(`#${i} Incomplete chord`);
-        else return;
-      }
-      if(dry) return;
-      if(track.transpose){
-        prevNote[0] = prevNote[0].map(v => Sorrygle.transpose(v, track.transpose));
-        if(pendingGrace) pendingGrace = pendingGrace.map(v => Sorrygle.transpose(v, track.transpose));
-      }
-      if(octaveOffset){
-        prevNote[0] = prevNote[0].map(v => {
-          const [ , a, b ] = v.match(Sorrygle.REGEXP_PITCH)!;
-
-          return `${a}${parseInt(b) + octaveOffset}` as any;
-        });
-        octaveOffset = 0;
-      }
-      for(const v of pendingGrace || []){
-        track.position += Sorrygle.GRACE_LENGTH + getTickDuration(track.wait);
-        track.data.addEvent(new MIDI.NoteEvent({
-          pitch: v,
-          duration: `T${Sorrygle.GRACE_LENGTH}` as any,
-          channel: track.id,
-          velocity: track.velocity,
-          wait: track.wait
-        }));
-        prevNote[1].push(`T-${Sorrygle.GRACE_LENGTH}` as any);
-        track.wait = [];
-      }
-      for(let i = 0; i < prevNote[1].length; i++){
-        const v = prevNote[1][i];
-        if(!v.startsWith("T")){
-          continue;
-        }
-        const y = Number(v.slice(1));
-        let x = Math.floor(y);
-
-        quantizationCarry += y - x;
-        if(quantizationCarry >= 1){
-          quantizationCarry--;
-          x++;
-        }
-        prevNote[1][i] = `T${x}` as any;
-      }
-
-      const options:(typeof pendingDiacritics)[number]['notes'][number] = {
-        pitch: prevNote[0],
-        duration: prevNote[1],
-        channel: track.id,
-        velocity: track.velocity,
-        wait: track.wait
-      };
-      if(getTickDuration(options.duration) < 0){
-        throw Error(`#${i} Negative duration`);
-      }
-      if(pendingDiacritics.length){
-        pendingDiacritics[pendingDiacritics.length - 1].notes.push(options);
-      }else{
-        track.position += getTickDuration(options.duration) + getTickDuration(options.wait);
-        track.data.addEvent(new MIDI.NoteEvent(options));
-      }
-      prevNote = undefined;
-      pendingGrace = undefined;
-      track.wait = [];
-    };
-    const getGhostNote = (length:number) => new MIDI.NoteEvent({
-      pitch: [ "C1" ],
-      duration: [ "T0" as any ],
-      velocity: 0,
-      wait: [ `T${length}` as any ]
-    });
-
-    main: for(let i = 0; i < chunk.length; i++){
-      if(--this.gas <= 0){
-        throw Error(`#${i} Not enough gas`);
-      }
-      if(parallelRange){
-        if(i >= parallelRange[0] && i <= parallelRange[1]) continue;
-      }
-      for(const w of pendingDiacritics){
-        if(w.argsRange){
-          if(i >= w.argsRange[0] && i <= w.argsRange[1]) continue main;
-        }
-      }
-      const [ c, n1 ] = chunk.substr(i, 2);
-
-      switch(c){
-        case "(":
-          addNote(i, true, true);
-          if(n1 === "("){
-            // 전역 설정
-            const [ C, key, value ] = assert(/^\(\((.+?)=(.+?)\)\)/, i, 'set-global-variable');
-            const gap = track.position - this.configurationTrack.position;
-
-            if(gap < 0){
-              throw Error(`#${i} Global variables can not intersect each other`);
-            }
-            switch(key){
-              case 'bpm':
-                this.configurationTrack.data.addEvent(getGhostNote(gap));
-                this.configurationTrack.data.setTempo(Number(value));
-                this.configurationTrack.position = track.position;
-                break;
-              case 'time-sig':{
-                const [ n, d ] = value.split('/');
-
-                this.configurationTrack.data.addEvent(getGhostNote(gap));
-                this.configurationTrack.data.setTimeSignature(parseInt(n), parseInt(d));
-                this.configurationTrack.position = track.position;
-              } break;
-              case 'fermata':
-                global.fermataLength = Number(value);
-                break;
-              default: throw Error(`#${i} Unhandled (set-global-variable, ${key})`);
-            }
-            i += C.length - 1;
-          }else{
-            // 지역 설정
-            if(!track) throw Error(`#${i} No channel specified`);
-            const [ C, key, value ] = assert(/^\((.+?)=(.+?)\)/, i, 'set-local-variable');
-
-            switch(key){
-              case 'o': track.octave = parseInt(value); break;
-              case 'p': track.data.addEvent(new MIDI.ProgramChangeEvent({
-                channel: track.id,
-                instrument: parseInt(value)
-              } as any)); break;
-              case 'q':
-                // 잇단음표
-                if(value === "?3"){
-                  originalQuantization = track.quantization;
-                  quantizationCarry = 0;
-                  track.quantization = `T${2 * getTickDuration(originalQuantization) / 3}` as any;
-                }else if(value === "?5"){
-                  originalQuantization = track.quantization;
-                  quantizationCarry = 0;
-                  track.quantization = `T${0.4 * getTickDuration(originalQuantization)}` as any;
-                }else if(value === "?7"){
-                  originalQuantization = track.quantization;
-                  quantizationCarry = 0;
-                  track.quantization = `T${2 * getTickDuration(originalQuantization) / 7}` as any;
-                }else if(value === "?"){
-                  if(!originalQuantization) throw Error(`#${i} No original quantization`);
-                  track.quantization = originalQuantization;
-                  originalQuantization = undefined;
-                }else{
-                  track.quantization = value as MIDI.Duration;
-                }
-                break;
-              case 's': (track.data as any).controllerChange(64, parseInt(value)); break;
-              case 't': track.transpose = parseInt(value); break;
-              case 'v': track.velocity = parseInt(value); break;
-            }
-            i += C.length - 1;
-          }
-          break;
-        case "#":{
-          if(track?.repeat) throw Error(`#${i} Incomplete repeat`);
-          addNote(i, true);
-          // 채널 선언
-          const [ C, idText ] = assert(/^#(\d+)/, i, 'declare-channel');
-          const id = parseInt(idText);
-
-          if(id < 1 || id > 16) throw Error(`#${i} Invalid channel ID: ${id}`);
-          track = this.createTrack(id);
-          this.tracks.push(track);
-          i += C.length - 1;
-        } break;
-        case "[":
-          addNote(i, true);
-          switch(n1){
-            case "[":{
-              // 병렬 열기
-              const [ C ] = assert(/^\[\[([\s\S]+?)(?=\]\])/, i, 'parallel');
-              const list = C.split('|');
-
-              if(C.includes("#")) throw Error(`#${i} Multiple tracks in a parallel group are not supported`);
-              if(list.length <= 1) throw Error(`#${i} Useless parallel`);
-              for(let j = 1; j < list.length; j++){
-                const pv = track.children[j - 1];
-                const v = list[j];
-                const child = new Sorrygle(v);
-
-                child.globalPreset = global;
-                child.trackPreset = JSON.parse(JSON.stringify(track)) as TrackSet;
-                if(pv){
-                  pv.quantization = track.quantization;
-                  pv.octave = track.octave;
-                  pv.velocity = track.velocity;
-                  pv.transpose = track.transpose;
-
-                  const gap = track.position + getTickDuration(track.wait) - pv.position - getTickDuration(pv.wait);
-
-                  if(gap < 0) throw Error(`#${i} Malformed parallel (the gap was ${gap})`);
-                  pv.wait.push(`T${gap}` as any);
-                  child.tracks.push(pv);
-                }
-                child.parse();
-                if(!pv){
-                  track.children[j - 1] = child.tracks[0];
-                }
-              }
-              parallelRange = [ i + list[0].length, i + C.length + 1 ];
-              i++;
-            } break;
-            case ">":
-              // 꾸밈음 열기
-              inChord = 'grace';
-              i++;
-              break;
-            default:
-              // 화음 열기
-              inChord = 'normal';
-          }
-          break;
-        case "]":
-          // 화음 닫기
-          if(!inChord) throw Error(`#${i} No chord`);
-          if(inChord === 'normal' && !prevNote?.[0].length) throw Error(`#${i} Empty chord`);
-          if(inChord === 'grace' && !pendingGrace!.length) throw Error(`#${i} Empty grace`);
-          inChord = undefined;
-          break;
-        case "<":{
-          let type:DiacriticType;
-          let args:any[]|undefined;
-          let argsRange:[number, number]|undefined;
-
-          addNote(i);
-          // 악상 기호 열기
-          switch(n1){
-            case "~": type = DiacriticType.FERMATA; break;
-            case "!": type = DiacriticType.SFORZANDO; break;
-            case ".": type = DiacriticType.STACCATO; break;
-            case "t": type = DiacriticType.TRILL; break;
-            case "+":{
-              let C:string;
-
-              type = DiacriticType.CRESCENDO;
-              [ C, ...args ] = assert(/^<\+[\s\S]+?(\d+)(?=>)/, i, 'diacritic-crescendo');
-              if(track.velocity >= parseInt(args[0])) throw Error(`#${i} Useless crescendo`);
-              argsRange = [ i + C.length - args[0].length, i + C.length - 1 ];
-            } break;
-            case "-":{
-              let C:string;
-
-              type = DiacriticType.DECRESCENDO;
-              [ C, ...args ] = assert(/^<-[\s\S]+?(\d+)(?=>)/, i, 'diacritic-decrescendo');
-              if(track.velocity <= parseInt(args[0])) throw Error(`#${i} Useless decrescendo`);
-              argsRange = [ i + C.length - args[0].length, i + C.length - 1 ];
-            } break;
-            case "p":
-              type = DiacriticType.PITCH_BEND;
-              args = [];
-              break;
-            default: throw Error(`#${i} Unknown diacritic: ${n1}`);
-          }
-          pendingDiacritics.push({
-            type,
-            args,
-            notes: [],
-            argsRange
-          });
-          i++;
-        } break;
-        case ">":
-          addNote(i);
-          // 악상 기호 닫기
-          if(!pendingDiacritics.length) throw Error(`#${i} No diacritics opened`);
-          popDiacritic(i);
-          break;
-        case "|":
-          if(n1 !== ":") throw Error(`#${i} Unknown character: ${n1}`);
-          if(track?.repeat) throw Error(`#${i} Incomplete repeat`);
-          addNote(i, true);
-          // 여는 도돌이표
-          i++;
-          track.repeat = {
-            start: i,
-            count: 1,
-            current: 0
-          };
-          break;
-        case ":":{
-          if(!track?.repeat) throw Error(`#${i} Please open a repeat`);
-          addNote(i, true);
-          // 닫는 도돌이표
-          const [ C, repeat ] = assert(/^:\|(\d+)?/, i, 'close-repeat');
-          const count = parseInt(repeat || "1");
-
-          if(isNaN(count) || count < 1) throw Error(`#${i} Malformed repeat: ${repeat}`);
-          if(!track.repeat.closed){
-            track.repeat.count = count;
-            track.repeat.closed = true;
-          }
-          if(track.repeat.current >= track.repeat.count){
-            delete track.repeat;
-            i += C.length - 1;
-          }else{
-            track.repeat.current++;
-            i = track.repeat.start;
-          }
-        } break;
-        case "/":
-          addNote(i, true);
-          switch(n1){
-            case "1":
-              if(!track.repeat || track.repeat.count > 1) throw Error(`#${i} Unexpected prima volta`);
-              if(track.repeat.current === 1){
-                const [ C ] = assert(/^\/1[\s\S]+?:\|\s*(\/2)?/, i, 'repeat');
-
-                delete track.repeat;
-                i += C.length - 1;
-              }else{
-                i++;
-              }
-              break;
-            default: throw Error(`#${i} Unknown character: ${n1}`);
-          }
-          break;
-        case "c": case "d": case "e": case "f": case "g": case "a": case "b":
-        case "C": case "D": case "F": case "G": case "A":
-        case "도": case "레": case "미": case "파": case "솔": case "라": case "시":
-        case "돗": case "렛": case "팟": case "솘": case "랏":
-        case "렢": case "밒": case "솚": case "랖": case "싶":{
-          addNote(i);
-          const [ C, semitones ] = assert(/^.([-+]*)/, i, 'semitone');
-          let semitone = 0;
-          let octave = track.octave;
-          let key:MIDI.Pitch;
-
-          if(inChord){
-            octave += octaveOffset;
-            octaveOffset = 0;
-          }
-          for(let j = 0; j < semitones.length; j++){
-            if(semitones[j] === "+") semitone++;
-            else semitone--;
-          }
-          key = Sorrygle.transpose(`${Sorrygle.NOTES[c]}${octave}`, semitone);
-          switch(inChord){
-            case 'normal':
-              if(prevNote) prevNote[0].push(key);
-              else prevNote = [
-                [ key ],
-                [ track.quantization ]
-              ];
-              break;
-            case 'grace':
-              if(pendingGrace) pendingGrace.push(key);
-              else pendingGrace = [ key ];
-              break;
-            default: prevNote = [
-              [ key ],
-              [ track.quantization ]
-            ];
-          }
-          i += C.length - 1;
-        } break;
-        case "^":
-          addNote(i);
-          // 한 옥타브 위
-          octaveOffset++;
-          break;
-        case "v":
-          addNote(i);
-          // 한 옥타브 아래
-          octaveOffset--;
-          break;
-        case "_": case "ㅇ":
-          // 쉼표
-          addNote(i, true);
-          track.wait.push(track.quantization);
-          break;
-        case "~": case "ㅡ":
-          // 길이 연장
-          if(!track) throw Error(`#${i} No channel specified`);
-          if(!prevNote) throw Error(`#${i} No previous note (long)`);
-          prevNote[1].push(track.quantization);
-          break;
-        case "0": case "1": case "2": case "3": case "4": case "5": case "6": case "7": case "8": case "9":
-        case "-": case ".":{
-          // 숫자 구성 요소
-          const topDiacritic = pendingDiacritics[pendingDiacritics.length - 1];
-          
-          if(topDiacritic?.type === DiacriticType.PITCH_BEND){
-            const [ C ] = assert(/^[-.0-9]+/, i, 'pitch-bend-frame');
-            const value = parseFloat(C);
-            if(isNaN(value) || value < -1 || value > 1) throw Error(`#${i} Malformed pitch bend value: ${C}`);
-            const samples = topDiacritic.notes.map(v => [ v.duration, v.wait ]);
-
-            samples.push([ track.wait ]);
-            if(prevNote) samples.push([ prevNote[1] ]);
-            topDiacritic.args!.push([
-              track.position + getTickDuration(samples.flat(2)),
-              value
-            ]);
-            i += C.length - 1;
-            break;
-          }
-        } default:
-          if(c.trim()) throw Error(`#${i} Unknown character: ${c}`);
-      }
-    }
-    addNote(chunk.length, true);
-
-    function assert(pattern:RegExp, i:number, name:string):RegExpMatchArray{
-      const R = chunk.slice(i).match(pattern);
-
-      if(!R) throw Error(`#${i} Malformed (${name}) (${chunk.slice(0, 10)}...)`);
-      return R;
-    }
-    function popDiacritic(index:number):void{
-      const diacritic = pendingDiacritics.pop();
-      let internalWait:MIDI.Duration[] = [];
-      let newVelocity = track.velocity;
-
-      if(!diacritic){
-        throw Error("No diacritics opened");
-      }
-      diacritic.notes.forEach((v, i, my) => {
-        const notes:typeof pendingDiacritics[number]['notes'] = [ v ];
-        
-        if(internalWait.length){
-          v.wait.push(...internalWait);
-          internalWait = [];
-        }
-        switch(diacritic.type){
-          case DiacriticType.FERMATA:
-            v.duration = [ `T${getTickDuration(v.duration) * global.fermataLength}` as any ];
-            break;
-          case DiacriticType.SFORZANDO:
-            v.velocity = 100;
-            break;
-          case DiacriticType.STACCATO:
-            internalWait.push(`T${getTickDuration(v.duration) - 8}` as any);
-            v.duration = [ "T8" as any ];
-            break;
-          case DiacriticType.TRILL:{
-            const pitch = v.pitch instanceof Array ? v.pitch : [ v.pitch ];
-            let left = getTickDuration(v.duration);
-
-            notes.shift();
-            while(left >= Sorrygle.TRILL_LENGTH){
-              left -= Sorrygle.TRILL_LENGTH;
-              if(notes.length % 2){
-                notes.push({
-                  ...v,
-                  pitch: pitch.map(w => Sorrygle.transpose(w, track.transpose, true)),
-                  duration: [ `T${Sorrygle.TRILL_LENGTH}` as any ],
-                  wait: []
-                });
-              }else{
-                notes.push({
-                  ...v,
-                  duration: [ `T${Sorrygle.TRILL_LENGTH}` as any ],
-                  wait: []
-                });
-              }
-            }
-            notes[0].wait = v.wait;
-            v.wait = [];
-            internalWait.push(`T${left}` as any);
-          } break;
-          case DiacriticType.CRESCENDO:
-          case DiacriticType.DECRESCENDO:
-            if(!diacritic.args) throw Error(`#${index} Malformed diacritic`);
-            v.velocity = track.velocity + i / (my.length - 1) * (diacritic.args[0] - track.velocity);
-            newVelocity = v.velocity;
-            break;
-          case DiacriticType.PITCH_BEND: if(!i){
-            // 안에 노트가 얼마나 있든 한 번만 처리하면 된다.
-            if(!diacritic.args || diacritic.args.length < 1) throw Error(`#${index} Malformed pitch bend`);
-            const data = track.pitchBendData || new MIDI.Track();
-            const frames:[number, number][] = diacritic.args;
-            let prevPosition = track.pitchBendPosition || 0;
-            const setBend = (position:number, value:number) => {
-              data.addEvent(getGhostNote(position - prevPosition));
-              data.addEvent(new (MIDI as any)['PitchBendEvent']({
-                channel: track.id - 1,
-                bend: value
-              }));
-              prevPosition = position;
-            };
-            setBend(...frames[0]);
-            for(let j = 1; j < frames.length; j++){
-              const prev = frames[j - 1];
-              const curr = frames[j];
-              const gap = curr[1] - prev[1];
-              
-              for(let k = prev[0]; k < curr[0]; k += Sorrygle.RESOLUTION){
-                const rate = (k - prev[0]) / (curr[0] - prev[0]);
-                
-                setBend(k, prev[1] + gap * rate);
-              }
-              setBend(...curr);
-            }
-            setBend(track.position + getTickDuration(
-              diacritic.notes.map(v => [ v.duration, v.wait ]).flat(2)
-            ), 0);
-            track.pitchBendData = data;
-            track.pitchBendPosition = prevPosition;
-          } break;
-        }
-        if(pendingDiacritics.length){
-          pendingDiacritics[pendingDiacritics.length - 1].notes.push(...notes);
-        }else{
-          track.position += getTickDuration(v.duration) + getTickDuration(v.wait);
-          track.data.addEvent(notes.map(w => new MIDI.NoteEvent(w)));
-        }
-      });
-      if(internalWait.length){
-        track.wait.push(...internalWait);
-      }
-      track.velocity = newVelocity;
-    }
-  }
 }
