@@ -80,7 +80,7 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `((time-sig=ⓘ/ⓘ))` | Time signature configuration | Set the time signature to ⓘ/ⓘ. | 4/4 |
 | `#ⓘ`            | Channel declaration   | (1≤ⓘ≤16) Set the current channel for following input. | 1 |
 | `(o=ⓘ)`         | Default octave        | (0≤ⓘ≤8) Set the default octave for following input. | 4 |
-| `(p=ⓘ)`         | Instrument            | (0≤ⓘ≤127) Set the instrument for following input. You can refer to [Instrument](#instrument) or [GM 1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set) for determining the value. Please note that `PC# = ⓘ + 1` since ⓘ starts from zero. | 0 |
+| `(p=ⓘ)`         | Instrument            | (0≤ⓘ≤127) Set the instrument for following input. You can refer to [GM 1 Sound Set](https://www.midi.org/specifications-old/item/gm-level-1-sound-set) for determining the value. Please note that `PC# = ⓘ + 1` since ⓘ starts from zero. | 0 |
 | `(q=ⓓ)`         | Quantization          | Set the default note/rest/tie length for following input. | 16 |
 | `(s=ⓘ)`         | Sustain pedal         | (0≤ⓘ≤127) Set the value of the sustain pedal. It's enabled only if ⓘ≥64. | 0 |
 | `(t=ⓘ)`         | Transpose             | Transpose following input. | 0 |
@@ -119,17 +119,6 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `=/`             | Head comment          | Ignore the text before this.
 | `/=`             | Tail comment          | Ignore the text after this.
 
-### User-defined Range
-You can define your own range like the example below.
-```sorrygle
-{{octave-chord}}{
-  [vxx]
-}
-
-#1 {{octave-chord}}(cdefg~~~) /= This is equivalent to
-#1 [vcc][vdd][vee][vff][vgg]~~~
-```
-
 ### Duration
 - `1`: Whole note
 - `2`: Half note
@@ -142,6 +131,22 @@ You can define your own range like the example below.
 - You can put `d` or `dd` at the front of each number above for (double-)dotted notes.
 - `Tⓘ`: ⓘ-tick-long note. Note that `♩ = T128`.
 
+### Bank Selection
+You can use more than 128 instruments (if supported) by providing a bank number like `(p=123/1)`
+which refers the instrument of Patch No. 124 and Bank No. 1.
+The default value of the bank number is zero.
+
+### User-defined Range
+You can define your own range like the example below.
+```sorrygle
+{{octave-chord}}{
+  [vxx]
+}
+
+#1 {{octave-chord}}(cdefg~~~) /= This is equivalent to
+#1 [vcc][vdd][vee][vff][vgg]~~~
+```
+
 ### Emoji Declaration
 You can let a Unicode emoji perform as a local configuration which is like `(...=...)`.
 ```sorrygle
@@ -152,7 +157,7 @@ You can let a Unicode emoji perform as a local configuration which is like `(...
 #1 (v=1)cdefgab(v=100)^c~~~~~~~
 ```
 
-There are some default emoji declarations below.
+There are some default emoji declarations below. Of course you can overwrite.
 | Emoji | Same as... |
 |-------|------------|
 | 🎹 | `(p=0)` |

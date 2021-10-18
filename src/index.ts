@@ -259,7 +259,11 @@ export class Sorrygle{
       switch(v.type){
         case "local-configuration": switch(v.key){
           case "o": target.octave = parseInt(v.value); break;
-          case "p": target.setProgram(parseInt(v.value)); break;
+          case "p":{
+            const chunk = v.value.match(/^(\d+)(?:\/(\d+))?$/);
+            if(!chunk) throw new SemanticError(v.l, "Malformed local configuration");
+            target.setInstrument(parseInt(chunk[1]), chunk[2] ? parseInt(chunk[2]) : 0);
+          } break;
           case "q": target.quantization = v.value as MIDI.Duration; break;
           case "s": target.setController(ControllerType.SUSTAIN_PEDAL, parseInt(v.value)); break;
           case "t": target.transpose = parseInt(v.value); break;
@@ -396,6 +400,7 @@ export class Sorrygle{
     const tracks = [ this.globalConfiguration.track ];
 
     for(const v of this.tracks){
+      if(v.isEmpty) continue;
       tracks.push(...v.out());
     }
     return Buffer.from(new MIDI.Writer(tracks).buildFile());

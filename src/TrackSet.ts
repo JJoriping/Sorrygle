@@ -9,6 +9,8 @@ export type GlobalConfiguration = {
   'fermataLength': number
 };
 export const enum ControllerType{
+  BANK_SELECT_MSB = 0,
+  BANK_SELECT_LSB = 32,
   SUSTAIN_PEDAL = 64
 }
 export type MIDIArrayOptions = Omit<MIDI.Options, 'pitch'>&{
@@ -46,7 +48,8 @@ export class TrackSet{
     'options': MIDIArrayOptions
   }|{
     'type': "program",
-    'instrument': number
+    'program': number,
+    'bank': number
   }|{
     'type': "controller",
     'key': ControllerType,
@@ -73,6 +76,9 @@ export class TrackSet{
   }
   public get dummy():TrackSet{
     return new TrackSet(-1).override(this);
+  }
+  public get isEmpty():boolean{
+    return this.events.length < 1;
   }
 
   constructor(channel:number){
@@ -252,12 +258,12 @@ export class TrackSet{
     this.position += R;
     return R;
   }
-  public setProgram(index:number):this{
-    this.events.push({ type: "program", instrument: index });
-    return this;
-  }
   public setController(key:ControllerType, value:number):this{
     this.events.push({ type: "controller", key, value });
+    return this;
+  }
+  public setInstrument(program:number, bank:number = 0):this{
+    this.events.push({ type: "program", program, bank });
     return this;
   }
   public wrapGlobalConfiguration(l:number, data:GlobalConfiguration, callback:(track:MIDI.Track) => void):this{
@@ -313,15 +319,17 @@ export class TrackSet{
         case "note":
           data.addEvent(new MIDI.NoteEvent(v.options as MIDI.Options));
           break;
-        case "program": data.addEvent(new MIDI.ProgramChangeEvent({
-          channel: this.channel,
-          instrument: v.instrument
-        } as any)); break;
-        case "controller": data.addEvent(getControllerChangePacket(
-          this.channel,
-          v.key,
-          v.value
-        )); break;
+        case "program":
+          data.addEvent(
+            getControllerChangePacket(this.channel, ControllerType.BANK_SELECT_MSB, v.bank),
+            getControllerChangePacket(this.channel, ControllerType.BANK_SELECT_LSB, v.bank)
+          );
+          data.addEvent(new MIDI.ProgramChangeEvent({
+            channel: this.channel,
+            instrument: v.program
+          } as any));
+          break;
+        case "controller": data.addEvent(getControllerChangePacket(this.channel, v.key, v.value)); break;
       }
     }
     return [
