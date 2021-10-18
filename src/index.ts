@@ -6,7 +6,6 @@ import SemanticError from "./SemanticError";
 import { ControllerType, GlobalConfiguration, MIDIOptionModifier, TrackSet } from "./TrackSet";
 import { getTickDuration, toTick, transpose } from "./utils";
 
-const MAX_GAS = 200000;
 const MAX_GROUP_REFERENCES = 1000;
 
 const RESOLUTION = 8;
@@ -16,6 +15,8 @@ const TRILL_INTERVAL = 16;
 const REGEXP_UDR_X = /^x([-\d]+)\/([-\d]+)$/;
 
 export class Sorrygle{
+  public static MAX_GAS = 100000;
+
   private static readonly DEFAULT_EMOJI:{ [key:string]: AST.LocalConfiguration } = {
     '𝅝': { l: 0, type: "local-configuration", key: "q", value: "1" },
     '𝅗𝅥': { l: 0, type: "local-configuration", key: "q", value: "2" },
@@ -130,7 +131,7 @@ export class Sorrygle{
 
   constructor(data:string){
     this.data = data;
-    this.gas = MAX_GAS;
+    this.gas = Sorrygle.MAX_GAS;
     this.parser = new Parser(Sorrygle.GRAMMAR);
     this.globalConfiguration = {
       track: new MIDI.Track(),

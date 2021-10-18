@@ -21,6 +21,7 @@ function main(...args:string[]):void{
     'ast'?: string,
     'raw': string[],
     'out': string,
+    'maxGas'?: number
   } = {
     raw: [],
     out: "output.mid"
@@ -33,17 +34,19 @@ function main(...args:string[]):void{
       `├ To compile from a string argument,`,
       `│ └ ${command} "cege[c^c]~~~"`,
       "│",
-      `├ ${g("--ast")} To retrieve the AST of your input,`,
+      `├ ${g("--ast")}     To retrieve the AST of your input,`,
       `│ ├ ${command} --ast output.json "cege[c^c]~~~"`,
       `│ └ If you omit --out, you won't get a MIDI file.`,
       "│",
-      `├ ${g("--file")} To compile from a file,`,
+      `├ ${g("--file")}    To compile from a file,`,
       `│ ├ ${command} --file input.srg`,
       `| └ or shortly -f`,
       "│",
-      `├ ${g("--out")}  To determine the output file,`,
+      `├ ${g("--out")}     To determine the output file,`,
       `│ ├ ${command} --file input.srg --out output.mid`,
       `│ └ or shortly -o`,
+      "│",
+      `├ ${g("--max-gas")} To limit resource usage (default: 100000)`,
       "│",
       `└ Got a problem? 👉 ${PACKAGE['bugs']['url']}`
     ].join('\n'));
@@ -64,12 +67,19 @@ function main(...args:string[]):void{
         options.ast = args[i + 1];
         i++;
         break;
+      case "--max-gas":
+        options.maxGas = parseInt(args[i + 1]);
+        i++;
+        break;
       default:
         options.raw.push(args[i]);
     }
   }
   let input:string;
 
+  if(options.maxGas){
+    Sorrygle.MAX_GAS = options.maxGas;
+  }
   if(options.file){
     console.log(`📥 Reading from   ${Color.YELLOW}${options.file}${Color.DEFAULT}...`);
     input = readFileSync(options.file).toString();
