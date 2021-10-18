@@ -99,7 +99,7 @@ export class TrackSet{
     if(!this.tuplet) return 0;
     let R = 0;
     
-    this.tuplet.error += Math.round(2 * tick / getTickDuration(this.quantization));
+    this.tuplet.error += Math.round(tick / getTickDuration(this.quantization));
     while(this.tuplet.error >= this.tuplet.stack){
       this.tuplet.error -= this.tuplet.stack;
       R++;
@@ -279,11 +279,12 @@ export class TrackSet{
   public wrapTuplet(l:number, stack:number, callback:() => number):number{
     if(this.tuplet) throw new SemanticError(l, "Tuplets can not be folded");
     const originalQuantization = this.quantization;
+    const trueQuantization = 2 * getTickDuration(originalQuantization) / stack;
     let R:number;
     
-    this.quantization = toTick(Math.floor(2 * getTickDuration(originalQuantization) / stack));
+    this.quantization = toTick(Math.floor(trueQuantization));
     this.tuplet = {
-      stack,
+      stack: Math.round(1 / (trueQuantization - Math.floor(trueQuantization))),
       error: 0
     };
     R = callback();
