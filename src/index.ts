@@ -6,6 +6,9 @@ import SemanticError from "./SemanticError";
 import { ControllerType, GlobalConfiguration, MIDIOptionModifier, TrackSet } from "./TrackSet";
 import { getTickDuration, toTick, transpose } from "./utils";
 
+const MAX_GAS = 200000;
+const MAX_GROUP_REFERENCES = 1000;
+
 const RESOLUTION = 8;
 const STACCATO_LENGTH = 16;
 const GRACE_LENGTH = 8;
@@ -43,9 +46,11 @@ export class Sorrygle{
       e.message += `\n${" ".repeat(Math.min(10, e.index))}↓ here\n${text.replace(/\r?\n/g, " ")}`;
     }else if(e instanceof Error && e.message.startsWith("Syntax error")){
       const chunk = e.message.split(/\n+/g);
+      const header = chunk[0].match(/at line (\d+) col (\d+)/);
       const out = [
-        ...chunk.slice(0, 3),
-        chunk[3].slice(0, chunk[3].indexOf(".") + 1) + " Expected characters were:"
+        chunk[0],
+        header ? getMap(parseInt(header[1]), parseInt(header[2])) : "",
+        "Expected characters are:"
       ];
       for(const v of chunk){
         const w = v.match(/^A (.+) based on:$/);
@@ -58,6 +63,23 @@ export class Sorrygle{
       e.message = out.join('\n');
     }
     throw e;
+
+    function getMap(line:number, column:number):string{
+      const R:string[] = [];
+      const lines = preprocessedData.split(/\n+/g);
+      const lineWidth = lines.length.toString().length;
+
+      for(let i = -2; i <= 0; i++){
+        const l = line + i - 1;
+
+        if(l < 0 || l >= lines.length){
+          continue;
+        }
+        R.push(`${(l + 1).toString().padStart(lineWidth, " ")}│ ${lines[l]}`);
+      }
+      R.push(" ".repeat(lineWidth + 1 + column) + "^ here");
+      return R.join('\n');
+    }
   }
   private static preprocess(data:string):string{
     return data.replace(/(.*)=\/|\/=(.*)/mg, "");
@@ -86,6 +108,7 @@ export class Sorrygle{
   }
 
   private readonly data:string;
+  private gas:number;
   private parser:Parser;
   private globalConfiguration:GlobalConfiguration;
   private tracks:TrackSet[];
@@ -107,6 +130,7 @@ export class Sorrygle{
 
   constructor(data:string){
     this.data = data;
+    this.gas = MAX_GAS;
     this.parser = new Parser(Sorrygle.GRAMMAR);
     this.globalConfiguration = {
       track: new MIDI.Track(),
@@ -250,11 +274,13 @@ export class Sorrygle{
     return R;
   }
   private parseStackables(list:AST.Stackable[], modifiers:MIDIOptionModifier[] = [], target:TrackSet = this.track):number{
+    let referenceCount = 0;
     let R = 0;
 
     for(let i = 0; i < list.length; i++){
       const v = list[i];
       if(!v) continue;
+      if(--this.gas < 0) throw new SemanticError(v.l, "Not enough gas");
 
       switch(v.type){
         case "local-configuration": switch(v.key){
@@ -326,6 +352,9 @@ export class Sorrygle{
           const group = this.groups.get(v.key);
 
           if(!group) throw new SemanticError(v.l, `No such group: ${v.key}`);
+          if(++referenceCount >= MAX_GROUP_REFERENCES){
+            throw new SemanticError(v.l, "Too many references");
+          }
           list.splice(i, 1, ...group);
           i--;
         } break;
