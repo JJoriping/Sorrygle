@@ -8,7 +8,8 @@ export namespace AST{
   }|{
     'l': number,
     'type': "channel-declaration",
-    'id': number
+    'id': number,
+    'continue'?: true
   }|{
     'l': number,
     'type': "udr-definition",
@@ -41,11 +42,7 @@ export namespace AST{
     'type': "group-declaration",
     'key': number,
     'value': Stackable[]
-  }|{
-    'l': number,
-    'type': "group-reference",
-    'key': number
-  }|{
+  }|GroupReference|{
     'l': number,
     'type': "parallelization",
     'values': Stackable[][]
@@ -54,6 +51,11 @@ export namespace AST{
     'type': "emoji-reference",
     'key': string
   }|Rest|null;
+  export type GroupReference = {
+    'l': number,
+    'type': "group-reference",
+    'key': number
+  };
   export type LocalConfiguration = {
     'l': number,
     'type': "local-configuration",
@@ -76,23 +78,25 @@ export namespace AST{
     'l': number,
     'type': "tie"
   };
+  export type Decimals = { 'type': "decimals", 'value': number };
   export type Diacritic = {
     'l': number,
     'type': "diacritic",
     'name': "p",
-    'value': Array<RestrictedNotation|Rest|{ 'type': "decimals", 'value': number }|null>
+    'value': Array<DiacriticComponent|Decimals>
   }|{
     'l': number,
     'type': "diacritic",
     'name': "+"|"-",
     'velocity': number,
-    'value': Array<RestrictedNotation|Rest|null>
+    'value': DiacriticComponent[]
   }|{
     'l': number,
     'type': "diacritic",
     'name': "."|"~"|"!"|"t",
-    'value': Array<RestrictedNotation|Rest|null>
+    'value': DiacriticComponent[]
   };
+  export type DiacriticComponent =  GroupReference|LocalConfiguration|Range|RestrictedNotation|Rest|null;
   export type KeySet = {
     'l': number,
     'type': "key",

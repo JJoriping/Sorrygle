@@ -151,13 +151,12 @@ export class Sorrygle{
       case "rest": R += target.rest(); break;
       case "tie": R += target.tie(v.l); break;
       case "diacritic":{
-        const innerListWithTies = v.value.filter(v => v !== null && typeof v === "object") as AST.RestrictedNotation[];
-        const innerList:AST.RestrictedNotation[] = [];
+        const innerList:Array<AST.DiacriticComponent|AST.Decimals> = [];
         const durations = new Map<number, number>();
         let current:AST.RestrictedNotation|undefined;
         let modifier:MIDIOptionModifier;
 
-        if(v.name === "." || v.name === "~" || v.name === "t") for(const w of innerListWithTies) switch(w.type){
+        if(v.name === "." || v.name === "~" || v.name === "t") for(const w of v.value) switch(w?.type){
           case "key": case "chord": case "diacritic":
             current = w;
             durations.set(w.l, getTickDuration(target.quantization));
@@ -171,7 +170,7 @@ export class Sorrygle{
             durations.set(current.l, data + getTickDuration(target.quantization));
           } break;
         }else{
-          innerList.push(...innerListWithTies);
+          innerList.push(...v.value);
         }
         switch(v.name){
           case ".": modifier = (o, caller, _, l) => {
@@ -216,7 +215,7 @@ export class Sorrygle{
             o.duration = [];
           }; break;
           case "+": case "-":{
-            const length = this.parseRestrictedNotations(innerList, modifiers, target.dummy);
+            const length = this.parseDiacriticComponents(innerList, modifiers, target.dummy);
             const start = target.velocity;
             const end = v.velocity;
             let startPosition:number;
@@ -247,7 +246,7 @@ export class Sorrygle{
                 prevOffset = offset;
                 prevValue = w.value;
               }else{
-                offset += this.parseRestrictedNotations([ w ], modifiers, target.dummy);
+                offset += this.parseDiacriticComponents([ w ], modifiers, target.dummy);
               }
             }
             modifier = (_, caller, position) => {
@@ -259,7 +258,7 @@ export class Sorrygle{
             };
           } break;
         }
-        R += this.parseRestrictedNotations(
+        R += this.parseDiacriticComponents(
           innerList,
           [ ...modifiers, modifier ],
           target
@@ -271,6 +270,19 @@ export class Sorrygle{
           target.addPitchBend(null, 0);
         }
       } break;
+    }
+    return R;
+  }
+  private parseDiacriticComponents(list:Array<AST.DiacriticComponent|AST.Decimals>, modifiers:MIDIOptionModifier[] = [], target:TrackSet = this.track):number{
+    let R = 0;
+
+    for(const v of list) switch(v?.type){
+      case "key": case "chord": case "diacritic": case "tie": case "rest":
+        R += this.parseRestrictedNotations([ v ], modifiers, target);
+        break;
+      case "group-reference": case "local-configuration": case "range":
+        R += this.parseStackables([ v ], modifiers, target);
+        break;
     }
     return R;
   }
@@ -468,10 +480,17 @@ export class Sorrygle{
           }
           break;
         case "channel-declaration":{
-          const baby = new TrackSet(v.id);
+          if(v.continue){
+            const target = this.tracks.filter(w => w.channel === v.id).at(-1);
 
-          this._track = baby;
-          this.tracks.push(baby);
+            if(!target) throw new SemanticError(v.l, `No such channel: ${v.id}`);
+            this._track = target;
+          }else{
+            const baby = new TrackSet(v.id);
+  
+            this._track = baby;
+            this.tracks.push(baby);
+          }
         } break;
         case "udr-definition":
           if(this.udrs.has(v.name)) throw new SemanticError(v.l, `Already declared UDR: ${v.name}`);

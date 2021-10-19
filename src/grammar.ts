@@ -62,6 +62,10 @@ const grammar: Grammar = {
     {"name": "ChannelDeclaration", "symbols": [{"literal":"#"}, "digits"], "postprocess": 
         (d, l) => ({ l, type: "channel-declaration", id: d[1].value })
         },
+    {"name": "ChannelDeclaration$string$1", "symbols": [{"literal":"#"}, {"literal":"~"}], "postprocess": (d) => d.join('')},
+    {"name": "ChannelDeclaration", "symbols": ["ChannelDeclaration$string$1", "digits"], "postprocess": 
+        (d, l) => ({ l, type: "channel-declaration", id: d[1].value, continue: true })
+        },
     {"name": "UDRDefinition$string$1", "symbols": [{"literal":"{"}, {"literal":"{"}], "postprocess": (d) => d.join('')},
     {"name": "UDRDefinition$string$2", "symbols": [{"literal":"}"}, {"literal":"}"}], "postprocess": (d) => d.join('')},
     {"name": "UDRDefinition$ebnf$1", "symbols": ["Stackable"]},
@@ -124,8 +128,9 @@ const grammar: Grammar = {
     {"name": "Group", "symbols": [{"literal":"{"}, "digits", "Group$ebnf$1", {"literal":"}"}], "postprocess": 
         (d, l) => ({ l, type: "group-declaration", key: d[1].value, value: d[2] })
         },
-    {"name": "Group$string$1", "symbols": [{"literal":"{"}, {"literal":"="}], "postprocess": (d) => d.join('')},
-    {"name": "Group", "symbols": ["Group$string$1", "digits", {"literal":"}"}], "postprocess": 
+    {"name": "Group", "symbols": ["GroupReference"], "postprocess": id},
+    {"name": "GroupReference$string$1", "symbols": [{"literal":"{"}, {"literal":"="}], "postprocess": (d) => d.join('')},
+    {"name": "GroupReference", "symbols": ["GroupReference$string$1", "digits", {"literal":"}"}], "postprocess": 
         (d, l) => ({ l, type: "group-reference", key: d[1].value })
         },
     {"name": "Parallelization$string$1", "symbols": [{"literal":"["}, {"literal":"["}], "postprocess": (d) => d.join('')},
@@ -157,54 +162,38 @@ const grammar: Grammar = {
     {"name": "decimals$ebnf$1", "symbols": [/[-0-9.]/]},
     {"name": "decimals$ebnf$1", "symbols": ["decimals$ebnf$1", /[-0-9.]/], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "decimals", "symbols": ["decimals$ebnf$1"], "postprocess": (d, l) => ({ l, type: "decimals", value: parseFloat(d[0].join('')) })},
+    {"name": "diacriticComponent", "symbols": ["GroupReference"], "postprocess": id},
+    {"name": "diacriticComponent", "symbols": ["LocalConfiguration"], "postprocess": id},
+    {"name": "diacriticComponent", "symbols": ["Range"], "postprocess": id},
+    {"name": "diacriticComponent", "symbols": ["restrictedNotation"], "postprocess": id},
+    {"name": "diacriticComponent", "symbols": ["rest"], "postprocess": id},
+    {"name": "diacriticComponent", "symbols": ["_"], "postprocess": id},
     {"name": "restrictedNotation", "symbols": ["keySet"], "postprocess": id},
     {"name": "restrictedNotation", "symbols": ["chordSet"], "postprocess": id},
     {"name": "restrictedNotation", "symbols": ["tie"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$1$subexpression$1", "symbols": ["restrictedNotation"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$1$subexpression$1", "symbols": ["rest"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$1$subexpression$1", "symbols": ["_"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$1", "symbols": ["restrictedNotation$ebnf$1$subexpression$1"]},
-    {"name": "restrictedNotation$ebnf$1$subexpression$2", "symbols": ["restrictedNotation"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$1$subexpression$2", "symbols": ["rest"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$1$subexpression$2", "symbols": ["_"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$1", "symbols": ["restrictedNotation$ebnf$1", "restrictedNotation$ebnf$1$subexpression$2"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "restrictedNotation$ebnf$1", "symbols": ["diacriticComponent"]},
+    {"name": "restrictedNotation$ebnf$1", "symbols": ["restrictedNotation$ebnf$1", "diacriticComponent"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "restrictedNotation", "symbols": [{"literal":"<"}, "diacriticType", "restrictedNotation$ebnf$1", {"literal":">"}], "postprocess": 
         (d, l) => ({ l, type: "diacritic", name: d[1], value: d[2] })
         },
     {"name": "restrictedNotation$string$1", "symbols": [{"literal":"<"}, {"literal":"+"}], "postprocess": (d) => d.join('')},
-    {"name": "restrictedNotation$ebnf$2$subexpression$1", "symbols": ["restrictedNotation"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$2$subexpression$1", "symbols": ["rest"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$2$subexpression$1", "symbols": ["_"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$2", "symbols": ["restrictedNotation$ebnf$2$subexpression$1"]},
-    {"name": "restrictedNotation$ebnf$2$subexpression$2", "symbols": ["restrictedNotation"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$2$subexpression$2", "symbols": ["rest"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$2$subexpression$2", "symbols": ["_"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$2", "symbols": ["restrictedNotation$ebnf$2", "restrictedNotation$ebnf$2$subexpression$2"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "restrictedNotation$ebnf$2", "symbols": ["diacriticComponent"]},
+    {"name": "restrictedNotation$ebnf$2", "symbols": ["restrictedNotation$ebnf$2", "diacriticComponent"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "restrictedNotation", "symbols": ["restrictedNotation$string$1", "restrictedNotation$ebnf$2", "digits", {"literal":">"}], "postprocess": 
         (d, l) => ({ l, type: "diacritic", name: "+", velocity: d[2].value, value: d[1] })
         },
     {"name": "restrictedNotation$string$2", "symbols": [{"literal":"<"}, {"literal":"-"}], "postprocess": (d) => d.join('')},
-    {"name": "restrictedNotation$ebnf$3$subexpression$1", "symbols": ["restrictedNotation"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$3$subexpression$1", "symbols": ["rest"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$3$subexpression$1", "symbols": ["_"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$3", "symbols": ["restrictedNotation$ebnf$3$subexpression$1"]},
-    {"name": "restrictedNotation$ebnf$3$subexpression$2", "symbols": ["restrictedNotation"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$3$subexpression$2", "symbols": ["rest"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$3$subexpression$2", "symbols": ["_"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$3", "symbols": ["restrictedNotation$ebnf$3", "restrictedNotation$ebnf$3$subexpression$2"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "restrictedNotation$ebnf$3", "symbols": ["diacriticComponent"]},
+    {"name": "restrictedNotation$ebnf$3", "symbols": ["restrictedNotation$ebnf$3", "diacriticComponent"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "restrictedNotation", "symbols": ["restrictedNotation$string$2", "restrictedNotation$ebnf$3", "digits", {"literal":">"}], "postprocess": 
         (d, l) => ({ l, type: "diacritic", name: "-", velocity: d[2].value, value: d[1] })
         },
     {"name": "restrictedNotation$string$3", "symbols": [{"literal":"<"}, {"literal":"p"}], "postprocess": (d) => d.join('')},
-    {"name": "restrictedNotation$ebnf$4$subexpression$1", "symbols": ["restrictedNotation"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$4$subexpression$1", "symbols": ["rest"], "postprocess": id},
+    {"name": "restrictedNotation$ebnf$4$subexpression$1", "symbols": ["diacriticComponent"], "postprocess": id},
     {"name": "restrictedNotation$ebnf$4$subexpression$1", "symbols": [{"literal":"("}, "decimals", {"literal":")"}], "postprocess": (d, l) => d[1]},
-    {"name": "restrictedNotation$ebnf$4$subexpression$1", "symbols": ["_"], "postprocess": id},
     {"name": "restrictedNotation$ebnf$4", "symbols": ["restrictedNotation$ebnf$4$subexpression$1"]},
-    {"name": "restrictedNotation$ebnf$4$subexpression$2", "symbols": ["restrictedNotation"], "postprocess": id},
-    {"name": "restrictedNotation$ebnf$4$subexpression$2", "symbols": ["rest"], "postprocess": id},
+    {"name": "restrictedNotation$ebnf$4$subexpression$2", "symbols": ["diacriticComponent"], "postprocess": id},
     {"name": "restrictedNotation$ebnf$4$subexpression$2", "symbols": [{"literal":"("}, "decimals", {"literal":")"}], "postprocess": (d, l) => d[1]},
-    {"name": "restrictedNotation$ebnf$4$subexpression$2", "symbols": ["_"], "postprocess": id},
     {"name": "restrictedNotation$ebnf$4", "symbols": ["restrictedNotation$ebnf$4", "restrictedNotation$ebnf$4$subexpression$2"], "postprocess": (d) => d[0].concat([d[1]])},
     {"name": "restrictedNotation", "symbols": ["restrictedNotation$string$3", "restrictedNotation$ebnf$4", {"literal":">"}], "postprocess": 
         (d, l) => {

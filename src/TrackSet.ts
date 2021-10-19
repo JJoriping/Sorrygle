@@ -42,7 +42,7 @@ export class TrackSet{
     'volta'
   ];
 
-  private readonly channel:number;
+  public readonly channel:number;
   private readonly events:Array<{
     'type': "note",
     'options': MIDIArrayOptions

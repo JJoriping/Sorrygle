@@ -17,6 +17,8 @@ GlobalConfiguration -> "((" words "=" words "))" {%
 %}
 ChannelDeclaration  -> "#" digits {%
   (d, l) => ({ l, type: "channel-declaration", id: d[1].value })
+%} | "#~" digits {%
+  (d, l) => ({ l, type: "channel-declaration", id: d[1].value, continue: true })
 %}
 UDRDefinition       -> "{{" words "}}" __ "{" Stackable:+ "}" {%
   (d, l) => ({ l, type: "udr-definition", name: d[1].value, value: d[5] })
@@ -52,8 +54,8 @@ Grace               -> "[>" (keySet {% id %} | chordSet {% id %} | Range {% id %
 %}
 Group               -> "{" digits Stackable:+ "}" {%
   (d, l) => ({ l, type: "group-declaration", key: d[1].value, value: d[2] })
-%}
-                       | "{=" digits "}" {%
+%} | GroupReference {% id %}
+GroupReference      -> "{=" digits "}" {%
   (d, l) => ({ l, type: "group-reference", key: d[1].value })
 %}
 Parallelization     -> "[[" Stackable:+ ("|" Stackable:+):+ "]]" {%
@@ -66,19 +68,25 @@ emoji               -> [^\x00-\xFF]:+ {% id %}
 digit               -> [0-9] {% id %}
 digits              -> digit:+ {% (d, l) => ({ l, type: "digits", value: parseInt(d[0].join('')) }) %}
 decimals            -> [-0-9.]:+ {% (d, l) => ({ l, type: "decimals", value: parseFloat(d[0].join('')) }) %}
+diacriticComponent  -> GroupReference {% id %}
+                       | LocalConfiguration {% id %}
+                       | Range {% id %}
+                       | restrictedNotation {% id %}
+                       | rest {% id %}
+                       | _ {% id %}
 restrictedNotation  -> keySet {% id %}
                        | chordSet {% id %}
                        | tie {% id %}
-                       | "<" diacriticType (restrictedNotation {% id %} | rest {% id %} | _ {% id %}):+ ">" {%
+                       | "<" diacriticType diacriticComponent:+ ">" {%
   (d, l) => ({ l, type: "diacritic", name: d[1], value: d[2] })
 %}
-                       | "<+" (restrictedNotation {% id %} | rest {% id %} | _ {% id %}):+ digits ">" {%
+                       | "<+" diacriticComponent:+ digits ">" {%
   (d, l) => ({ l, type: "diacritic", name: "+", velocity: d[2].value, value: d[1] })
 %}
-                       | "<-" (restrictedNotation {% id %} | rest {% id %} | _ {% id %}):+ digits ">" {%
+                       | "<-" diacriticComponent:+ digits ">" {%
   (d, l) => ({ l, type: "diacritic", name: "-", velocity: d[2].value, value: d[1] })
 %}
-                       | "<p" (restrictedNotation {% id %} | rest {% id %} | "(" decimals ")" {% (d, l) => d[1] %} | _ {% id %}):+ ">" {%
+                       | "<p" (diacriticComponent {% id %} | "(" decimals ")" {% (d, l) => d[1] %}):+ ">" {%
   (d, l) => {
     const R = [];
     let chunk = "";

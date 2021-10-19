@@ -147,6 +147,16 @@ You can define your own range like the example below.
 #1 [vcc][vdd][vee][vff][vgg]~~~
 ```
 
+### Channel Continuation
+You can write notes through several channels alternately like below.
+This helps you transcript a long score without scrolling Sorrygle texts to the desired position.
+```sorrygle
+#1  (♩)      cdefg~~~
+#2  (♪)(o=3) c c c c
+#~1          gfedc~~~   /= This continues the previous #1
+#~2          vgvg[vcc]~ /= This continues the previous #2
+```
+
 ### Emoji Declaration
 You can let a Unicode emoji perform as a local configuration which is like `(...=...)`.
 ```sorrygle
