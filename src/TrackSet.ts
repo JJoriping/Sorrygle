@@ -45,6 +45,7 @@ export class TrackSet{
   public readonly channel:number;
   private readonly events:Array<{
     'type': "note",
+    'l': number,
     'options': MIDIArrayOptions
   }|{
     'type': "program",
@@ -159,20 +160,17 @@ export class TrackSet{
         else this.tie(set.l, calibration);
       }
     }
-    return this.addRaw(options);
+    return this.addRaw(set.l, options);
   }
   public addPitchBend(position:number|null, value:number):this{
     this.pitchBend.push([ position ?? this.position, value ]);
     return this;
   }
-  public addRaw(options:MIDIArrayOptions):number{
+  public addRaw(l:number, options:MIDIArrayOptions):number{
     const R = getTickDuration(options.duration);
 
-    if(R < 1){
-      return 0;
-    }
     if(options.pitch.find(v => v.startsWith("x"))) throw Error("Unresolved x");
-    this.events.push({ type: "note", options });
+    this.events.push({ type: "note", l, options });
     this.position += R;
     return R;
   }
@@ -318,6 +316,8 @@ export class TrackSet{
     for(const v of this.events){
       switch(v.type){
         case "note":
+          if(v.options.duration.length && getTickDuration(v.options.duration) < 1)
+            throw new SemanticError(v.l, "Negative duration");
           data.addEvent(new MIDI.NoteEvent(v.options as MIDI.Options));
           break;
         case "program":

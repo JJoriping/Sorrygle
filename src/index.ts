@@ -46,7 +46,7 @@ export class Sorrygle{
 
       e.message += `\n${" ".repeat(Math.min(10, e.index))}↓ here\n${text.replace(/\r?\n/g, " ")}`;
     }else if(e instanceof Error && e.message.startsWith("Syntax error")){
-      const chunk = e.message.split(/\n+/g);
+      const chunk = e.message.split(/\r?\n/g);
       const header = chunk[0].match(/at line (\d+) col (\d+)/);
       const out = [
         chunk[0],
@@ -162,6 +162,10 @@ export class Sorrygle{
             durations.set(w.l, getTickDuration(target.quantization));
             innerList.push(w);
             break;
+          case "rest":
+            current = undefined;
+            innerList.push(w);
+            break;
           case "tie":{
             if(!current) throw new SemanticError(w.l, "Malformed tie");
             const data = durations.get(current.l);
@@ -200,7 +204,7 @@ export class Sorrygle{
                 if(o.pitch.find(w => w.startsWith("x"))) throw Error("Unresolved x");
                 pitch = o.pitch as MIDI.Pitch[];
               }
-              R += caller.addRaw(modifiers.reduce((pw, w) => {
+              R += caller.addRaw(l, modifiers.reduce((pw, w) => {
                 w(pw, caller, position, l);
                 return pw;
               }, {
@@ -312,6 +316,7 @@ export class Sorrygle{
         case "notation":{
           const w = v.value;
           const actualModifiers = [ ...modifiers ];
+          let totalLength = 0;
 
           if(v.grace){
             const graceModifiers:MIDIOptionModifier[] = [
@@ -321,7 +326,7 @@ export class Sorrygle{
                 o.duration = [ toTick(GRACE_LENGTH) ];
               }
             ];
-            let totalLength = 0;
+            let first = true;
 
             for(const g of v.grace.value){
               if(!g) continue;
@@ -339,13 +344,22 @@ export class Sorrygle{
               }
             }
             actualModifiers.push(o => {
-              const value = getTickDuration(o.duration) - totalLength;
+              let duration = getTickDuration(o.duration);
 
-              if(value < 1) throw new SemanticError(v.l, "Too long graces");
-              o.duration = [ toTick(value) ];
+              if(duration < totalLength){
+                totalLength -= duration;
+                duration = 0;
+              }else{
+                totalLength = 0;
+                first = false;
+              }
+              o.duration = duration ? [ toTick(duration) ] : [];
             });
           }
           R += this.parseRestrictedNotations([ w ], actualModifiers, target);
+          if(totalLength > 0){
+            throw new SemanticError(v.l, "Too long appoggiatura");
+          }
         } break;
         case "rest": R += target.rest(); break;
         case "range": R += this.parseRange(v, modifiers, target); break;
