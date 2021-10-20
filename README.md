@@ -93,7 +93,7 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `-`              | Semitone down         | Decrease the pitch of the preceding note by one semitone.
 | `~`              | Tie                   | Increase the length of the preceding note. You can use `ㅡ` instead.
 | `[ceg]`          | Chord                 | Play C, E, G at once.
-| `[|ceg]`         | Arpeggio              | Play C, E, G rapidly in sequence.
+| `[\|ceg]`        | Arpeggio              | Play C, E, G rapidly in sequence.
 | `^c`             | Octave up             | Play C in one octave higher than the default.
 | `vc`             | Octave down           | Play C in one octave lower than the default.
 | `(^ceg)`         | Ranged octave up      | Play all notes in the bracket in one octave higher than the default.
