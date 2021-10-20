@@ -112,6 +112,7 @@ export namespace AST{
   export type ChordSet = {
     'l': number,
     'type': "chord",
+    'arpeggio': boolean,
     'value': KeySet[],
     'suffix'?: string[]
   };

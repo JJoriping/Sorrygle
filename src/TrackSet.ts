@@ -15,6 +15,7 @@ export const enum ControllerType{
 }
 export type MIDIArrayOptions = Omit<MIDI.Options, 'pitch'>&{
   'graced'?: true,
+  'arpeggio'?: true,
   'pitch': Array<MIDI.Pitch|`x${number}/${number}`>,
   'duration': MIDI.Duration[],
   'wait': MIDI.Duration[]
@@ -245,14 +246,22 @@ export class TrackSet{
     let actualLength = length ?? getTickDuration(this.quantization);
     actualLength += this.checkTuplet(actualLength);
     const duration = toTick(actualLength);
+    const R = getTickDuration(duration);
 
     if(!this.isDummy){
       const lastEvent = this.events.at(-1);
   
       if(lastEvent?.type !== "note") throw new SemanticError(l, "Malformed tie");
       lastEvent.options.duration.push(duration);
+      if(lastEvent.options.arpeggio) for(const v of this.children){
+        const childNote = v?.events.at(-1);
+
+        if(childNote?.type === "note" && childNote.options.arpeggio){
+          childNote.options.duration.push(duration);
+          v.position += R;
+        }
+      }
     }
-    const R = getTickDuration(duration);
     this.position += R;
     return R;
   }

@@ -230,10 +230,12 @@ const grammar: Grammar = {
     {"name": "restrictedKeySet", "symbols": ["restrictedKeySet$ebnf$1", "key", "restrictedKeySet$ebnf$2"], "postprocess": 
         (d, l) => ({ l, type: "key", prefix: e(d[0]), key: d[1], suffix: e(d[2]) })
         },
-    {"name": "chordSet$ebnf$1", "symbols": ["restrictedKeySet"]},
-    {"name": "chordSet$ebnf$1", "symbols": ["chordSet$ebnf$1", "restrictedKeySet"], "postprocess": (d) => d[0].concat([d[1]])},
-    {"name": "chordSet", "symbols": [{"literal":"["}, "chordSet$ebnf$1", {"literal":"]"}], "postprocess": 
-        (d, l) => ({ l, type: "chord", value: d[1] })
+    {"name": "chordSet$ebnf$1", "symbols": [{"literal":"|"}], "postprocess": id},
+    {"name": "chordSet$ebnf$1", "symbols": [], "postprocess": () => null},
+    {"name": "chordSet$ebnf$2", "symbols": ["restrictedKeySet"]},
+    {"name": "chordSet$ebnf$2", "symbols": ["chordSet$ebnf$2", "restrictedKeySet"], "postprocess": (d) => d[0].concat([d[1]])},
+    {"name": "chordSet", "symbols": [{"literal":"["}, "chordSet$ebnf$1", "chordSet$ebnf$2", {"literal":"]"}], "postprocess": 
+        (d, l) => ({ l, type: "chord", arpeggio: Boolean(d[1]), value: d[2] })
         },
     {"name": "Repetition$string$1", "symbols": [{"literal":"|"}, {"literal":":"}], "postprocess": (d) => d.join('')},
     {"name": "Repetition", "symbols": ["Repetition$string$1"], "postprocess": 

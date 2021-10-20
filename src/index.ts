@@ -12,6 +12,7 @@ const RESOLUTION = 8;
 const STACCATO_LENGTH = 16;
 const GRACE_LENGTH = 8;
 const TRILL_INTERVAL = 16;
+const ARPEGGIO_INTERVAL = 8;
 const REGEXP_UDR_X = /^x([-\d]+)\/([-\d]+)$/;
 
 export class Sorrygle{
@@ -147,7 +148,30 @@ export class Sorrygle{
     let R = 0;
 
     for(const v of list) switch(v.type){
-      case "key": case "chord": R += target.add(v, modifiers); break;
+      case "chord": if(v.arpeggio){
+        const originalQuantization = getTickDuration(target.quantization);
+
+        R += this.parseStackables([{
+          l: v.l,
+          type: "parallelization",
+          values: v.value.map((w, i) => {
+            const rest = i * ARPEGGIO_INTERVAL;
+            const length = originalQuantization - rest;
+            const R:AST.Stackable[] = [
+              { l: w.l, type: "local-configuration", key: "q", value: toTick(length) },
+              { l: w.l, type: "notation", value: w },
+              { l: w.l, type: "local-configuration", key: "q", value: toTick(originalQuantization) }
+            ];
+            if(rest) R.unshift(
+              { l: w.l, type: "local-configuration", key: "q", value: toTick(rest) },
+              { l: w.l, type: "rest" }
+            );
+            return R;
+          })
+        }], [ ...modifiers, o => o.arpeggio = true ], target);
+        break;
+      }
+      case "key": R += target.add(v, modifiers); break;
       case "rest": R += target.rest(); break;
       case "tie": R += target.tie(v.l); break;
       case "diacritic":{

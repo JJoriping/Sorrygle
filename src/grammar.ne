@@ -113,8 +113,8 @@ keySet              -> notePrefix:* key noteSuffix:* {%
 restrictedKeySet    -> notePrefix:* key noteSuffix:* {%
   (d, l) => ({ l, type: "key", prefix: e(d[0]), key: d[1], suffix: e(d[2]) })
 %}
-chordSet            -> "[" restrictedKeySet:+ "]" {%
-  (d, l) => ({ l, type: "chord", value: d[1] })
+chordSet            -> "[" "|":? restrictedKeySet:+ "]" {%
+  (d, l) => ({ l, type: "chord", arpeggio: Boolean(d[1]), value: d[2] })
 %}
 Repetition          -> "|:" {%
   (d, l) => ({ l, type: "repeat-open" })
