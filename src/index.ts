@@ -386,10 +386,21 @@ export class Sorrygle{
         case "rest": R += target.rest(); break;
         case "range": R += this.parseRange(v, modifiers, target); break;
         case "parallelization":{
-          for(let i = 1; i < v.values.length; i++){
-            this.parseStackables(v.values[i], modifiers, target.childAt(v.l, i));
+          let length:number|undefined;
+
+          for(let i = 0; i < v.values.length; i++){
+            const r = this.parseStackables(v.values[i], modifiers, target.childAt(v.l, i));
+
+            if(length !== undefined && r !== length){
+              throw new SemanticError(v.l, "Parallelization length mismatch");
+            }
+            length = r;
           }
-          R += this.parseStackables(v.values[0], modifiers, target);
+          if(length === undefined){
+            throw Error("Unexpected length");
+          }
+          target.rest(length, true);
+          R += length;
         } break;
         case "group-declaration":
           if(this.groups.has(v.key)) throw new SemanticError(v.l, `Already declared group: ${v.key}`);

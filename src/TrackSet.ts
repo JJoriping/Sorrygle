@@ -113,8 +113,6 @@ export class TrackSet{
     this.quantization = parent.quantization;
     this.transpose = parent.transpose;
     this.velocity = parent.velocity;
-    this.rests.push(...parent.rests);
-    this.position += getTickDuration(parent.rests);
     return this;
   }
 
