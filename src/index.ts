@@ -350,8 +350,6 @@ export class Sorrygle{
                 o.duration = [ toTick(GRACE_LENGTH) ];
               }
             ];
-            let first = true;
-
             for(const g of v.grace.value){
               if(!g) continue;
               switch(g.type){
@@ -374,8 +372,8 @@ export class Sorrygle{
                 totalLength -= duration;
                 duration = 0;
               }else{
+                duration -= totalLength;
                 totalLength = 0;
-                first = false;
               }
               o.duration = duration ? [ toTick(duration) ] : [];
             });
