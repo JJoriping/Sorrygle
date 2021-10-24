@@ -67,6 +67,7 @@ export class TrackSet{
   private rests:MIDI.Duration[];
   private position:number;
   private snapshot:AST.Node[];
+  private latestArpeggio?:MIDIArrayOptions[];
   private repeatShapshot?:AST.Node[];
   private tuplet?:{
     'stack': number,
@@ -249,15 +250,19 @@ export class TrackSet{
     if(!this.isDummy){
       const lastEvent = this.events.at(-1);
   
-      if(lastEvent?.type !== "note") throw new SemanticError(l, "Malformed tie");
-      lastEvent.options.duration.push(duration);
-      if(lastEvent.options.arpeggio) for(const v of this.children){
-        const childNote = v?.events.at(-1);
+      if(lastEvent?.type === "note"){
+        lastEvent.options.duration.push(duration);
+      }else{
+        const firstChildLastEvent = this.children[0].events.at(-1);
 
-        if(childNote?.type === "note" && childNote.options.arpeggio){
-          childNote.options.duration.push(duration);
-          v.position += R;
-        }
+        if(firstChildLastEvent?.type === "note" && firstChildLastEvent.options.arpeggio) for(const v of this.children){
+          const childNote = v?.events.at(-1);
+  
+          if(childNote?.type === "note" && childNote.options.arpeggio){
+            childNote.options.duration.push(duration);
+            v.position += R;
+          }
+        }else throw new SemanticError(l, "Malformed tie");
       }
     }
     this.position += R;
