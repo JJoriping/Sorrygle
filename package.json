@@ -1,6 +1,6 @@
 {
   "name": "sorrygle",
-  "version": "1.2.3-c",
+  "version": "1.2.4",
   "description": "Text-based MIDI-writing language and its compiler",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

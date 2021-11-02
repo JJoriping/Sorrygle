@@ -14,6 +14,7 @@ export const enum ControllerType{
   SUSTAIN_PEDAL = 64
 }
 export type MIDIArrayOptions = Omit<MIDI.Options, 'pitch'>&{
+  'ignore'?: true,
   'graced'?: true,
   'arpeggio'?: true,
   'pitch': Array<MIDI.Pitch|`x${number}/${number}`>,
@@ -67,7 +68,6 @@ export class TrackSet{
   private rests:MIDI.Duration[];
   private position:number;
   private snapshot:AST.Node[];
-  private latestArpeggio?:MIDIArrayOptions[];
   private repeatShapshot?:AST.Node[];
   private tuplet?:{
     'stack': number,
@@ -81,7 +81,7 @@ export class TrackSet{
     return new TrackSet(-1).override(this);
   }
   public get isEmpty():boolean{
-    return this.events.length < 1;
+    return this.events.length < 1 && this.children.every(v => v.events.length < 1);
   }
 
   constructor(channel:number){
@@ -167,6 +167,7 @@ export class TrackSet{
     return this;
   }
   public addRaw(l:number, options:MIDIArrayOptions):number{
+    if(options.ignore) return 0;
     const R = getTickDuration(options.duration);
 
     if(options.pitch.find(v => v.startsWith("x"))) throw Error("Unresolved x");

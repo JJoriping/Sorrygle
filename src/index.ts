@@ -175,12 +175,18 @@ export class Sorrygle{
       case "rest": R += target.rest(); break;
       case "tie": R += target.tie(v.l); break;
       case "diacritic":{
-        const innerList:Array<AST.DiacriticComponent|AST.Decimals> = [];
+        const innerList:Array<AST.DiacriticComponent|AST.Decimals|AST.Range> = [];
         const durations = new Map<number, number>();
         let current:AST.RestrictedNotation|undefined;
         let modifier:MIDIOptionModifier;
 
         if(v.name === "." || v.name === "~" || v.name === "t") for(const w of v.value) switch(w?.type){
+          case "range":
+            this.parseStackables(w.value, [ ...modifiers, (o, _, __, l) => {
+              durations.set(l, getTickDuration(o.duration));
+            }], this.track.dummy);
+            innerList.push(w);
+            break;
           case "key": case "chord": case "diacritic":
             current = w;
             durations.set(w.l, getTickDuration(target.quantization));
@@ -240,7 +246,7 @@ export class Sorrygle{
               length -= TRILL_INTERVAL;
             }
             if(length > 0) caller.rest(length, true);
-            o.duration = [];
+            o.ignore = true;
           }; break;
           case "+": case "-":{
             const length = this.parseDiacriticComponents(innerList, modifiers, target.dummy);
@@ -458,7 +464,7 @@ export class Sorrygle{
           p.pitch = pitches;
           wait = [];
         }], caller);
-        o.duration = [];
+        o.ignore = true;
       };
     }else switch(range.key){
       case "^": modifier = o => o.pitch = o.pitch.map(w => transpose(w, 12)); break;
