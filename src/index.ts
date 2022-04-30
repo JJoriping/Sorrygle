@@ -134,6 +134,7 @@ export class Sorrygle{
     const timeline:[number, number][][] = [];
     const actualIndexCache:Record<number, number> = {};
     const sorrygle = new Sorrygle(preprocessedData);
+    const tracks:TrackSet[] = [];
     try{
       sorrygle.parse();
     }catch(e){
@@ -142,6 +143,12 @@ export class Sorrygle{
     let bpm = 120;
 
     for(const v of sorrygle.tracks){
+      tracks.push(v);
+      for(const w of v.children){
+        tracks.push(w);
+      }
+    }
+    for(const v of tracks){
       let position = 0;
 
       for(const w of v.events){

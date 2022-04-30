@@ -61,13 +61,13 @@ export class TrackSet{
     'type': "bpm",
     'value': number
   }>;
+  public readonly children:TrackSet[];
   private readonly pitchBend:[position:number, value:number][];
 
   public octave:number;
   public quantization:MIDI.Duration;
   public transpose:number;
   public velocity:number;
-  private children:TrackSet[];
   private rests:MIDI.Duration[];
   private position:number;
   private snapshot:AST.Node[];
