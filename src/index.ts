@@ -101,7 +101,7 @@ export class Sorrygle{
       
       map.push(array);
       sum += 1 + v.length;
-      filteredSum += 1 + v.length - array[2] - (v.match(REGEXP_RIGHT_COMMENT)?.[0].length || 0);
+      filteredSum += 1 + v.length - array[2] - (v.slice(array[2]).match(REGEXP_RIGHT_COMMENT)?.[0].length || 0);
     });
     return map;
   }
