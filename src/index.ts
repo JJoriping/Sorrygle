@@ -150,6 +150,8 @@ export class Sorrygle{
             bpm = w.value;
             break;
           case "note":{
+            position += getTickDuration(w.options.wait) / bpm * TICK_TO_MS;
+
             const key = getActualIndex(w.l);
             const duration = getTickDuration(w.options.duration) / bpm * TICK_TO_MS;
             
