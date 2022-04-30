@@ -7,6 +7,7 @@ import { ControllerType, GlobalConfiguration, MIDIOptionModifier, TrackSet } fro
 import { getTickDuration, toTick, transpose } from "./utils";
 
 const MAX_GROUP_REFERENCES = 1000;
+const TICK_TO_MS = 60000 / 128;
 
 const RESOLUTION = 8;
 const STACCATO_LENGTH = 16;
@@ -14,6 +15,9 @@ const GRACE_LENGTH = 8;
 const TRILL_INTERVAL = 16;
 const ARPEGGIO_INTERVAL = 8;
 const REGEXP_UDR_X = /^x([-\d]+)\/([-\d]+)$/;
+const REGEXP_ALL_COMMENT = /(.*)=\/|\/=(.*)/mg;
+const REGEXP_LEFT_COMMENT = /^(.*)=\//;
+const REGEXP_RIGHT_COMMENT = /\/=(.*)$/;
 
 export class Sorrygle{
   public static MAX_GAS = 100000;
@@ -84,7 +88,22 @@ export class Sorrygle{
     }
   }
   private static preprocess(data:string):string{
-    return data.replace(/(.*)=\/|\/=(.*)/mg, "");
+    return data.replace(REGEXP_ALL_COMMENT, "");
+  }
+  private static getCommentMap(data:string){
+    const lines = data.split('\n');
+    const map:[lineStartIndex:number, payloadStartIndex:number, leftCommentLength:number][] = [];
+    let sum = 0;
+    let filteredSum = 0;
+    
+    lines.forEach(v => {
+      const array:[number, number, number] = [ sum, filteredSum, v.match(REGEXP_LEFT_COMMENT)?.[0].length || 0 ];
+      
+      map.push(array);
+      sum += 1 + v.length;
+      filteredSum += 1 + v.length - array[2] - (v.match(REGEXP_RIGHT_COMMENT)?.[0].length || 0);
+    });
+    return map;
   }
   public static compile(data:string):Buffer{
     const preprocessedData = Sorrygle.preprocess(data);
@@ -106,6 +125,58 @@ export class Sorrygle{
       return parser.results[0];
     }catch(e){
       Sorrygle.prettifyError(preprocessedData, e);
+    }
+  }
+  public static getTimeline(data:string):[start:number, stop:number][][]{
+    const preprocessedData = Sorrygle.preprocess(data);
+    const commentMap = Sorrygle.getCommentMap(data);
+    const commentMapMaxIndex = commentMap.length - 1;
+    const timeline:[number, number][][] = [];
+    const actualIndexCache:Record<number, number> = {};
+    const sorrygle = new Sorrygle(preprocessedData);
+    try{
+      sorrygle.parse();
+    }catch(e){
+      Sorrygle.prettifyError(preprocessedData, e);
+    }
+    let bpm = 120;
+
+    for(const v of sorrygle.tracks){
+      let position = 0;
+
+      for(const w of v.events){
+        switch(w.type){
+          case "bpm":
+            bpm = w.value;
+            break;
+          case "note":{
+            const key = getActualIndex(w.l);
+            const duration = getTickDuration(w.options.duration) / bpm * TICK_TO_MS;
+            
+            timeline[key] ??= [];
+            timeline[key].push([ position, position += duration ]);
+          } break;
+        }
+      }
+    }
+    return timeline;
+
+    function getActualIndex(index:number):number{
+      if(index in actualIndexCache){
+        return actualIndexCache[index];
+      }
+      let entity:(typeof commentMap)[number];
+      
+      for(let i = 1; i <= commentMapMaxIndex; i++){
+        if(commentMap[i][1] < index){
+          continue;
+        }
+        entity = commentMap[i - 1];
+        break;
+      }
+      entity ??= commentMap[commentMapMaxIndex];
+
+      return actualIndexCache[index] = entity[0] + entity[2] + index - entity[1];
     }
   }
 
@@ -517,9 +588,12 @@ export class Sorrygle{
         case "global-configuration":
           switch(v.key){
             case "bpm":{
+              const value = parseFloat(v.value);
+
               this.track.wrapGlobalConfiguration(v.l, this.globalConfiguration, track => {
-                track.setTempo(parseFloat(v.value));
+                track.setTempo(value);
               });
+              this.track.events.push({ type: "bpm", value });
             } break;
             case "time-sig":{
               const [ n, d ] = v.value.split('/');
@@ -528,7 +602,9 @@ export class Sorrygle{
                 track.setTimeSignature(parseInt(n), parseInt(d));
               });
             } break;
-            case "fermata": this.globalConfiguration.fermataLength = parseFloat(v.value); break;
+            case "fermata":
+              this.globalConfiguration.fermataLength = parseFloat(v.value);
+              break;
             default: throw new SemanticError(v.l, `Unhandled global configuration: ${v.key}`);
           }
           break;

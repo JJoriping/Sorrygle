@@ -45,7 +45,7 @@ export class TrackSet{
   ];
 
   public readonly channel:number;
-  private readonly events:Array<{
+  public readonly events:Array<{
     'type': "note",
     'l': number,
     'options': MIDIArrayOptions
@@ -56,6 +56,9 @@ export class TrackSet{
   }|{
     'type': "controller",
     'key': ControllerType,
+    'value': number
+  }|{
+    'type': "bpm",
     'value': number
   }>;
   private readonly pitchBend:[position:number, value:number][];

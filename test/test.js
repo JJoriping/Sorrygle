@@ -1,6 +1,19 @@
 const { readdirSync, readFileSync, writeFileSync } = require("fs");
 const { Sorrygle } = require("..");
 
+function testTimeline(){
+  console.log("** Timeline");
+  
+  if(JSON.stringify(Sorrygle.getTimeline([
+    "Hello =/ #1 (q=8) cdefgab[c^c]~~~ /= How are you?",
+    "#2 (o=2) cdef ((bpm=150)) |: gab^c~~~ :| /= Cool",
+    "/= Good bye =/"
+  ].join('\n'))) !== "[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[0,250]],[[250,500]],[[500,750]],[[750,1000]],[[1000,1250]],[[1250,1500]],[[1500,1750]],[[1750,2750]],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[0,125]],[[125,250]],[[250,375]],[[375,500]],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[500,600],[1200,1300]],[[600,700],[1300,1400]],[[700,800],[1400,1500]],[[800,1200],[1500,1900]]]"){
+    console.error("*    \x1B[33mError\x1B[0m: Incorrect result");
+    process.exit(1);
+  }
+  console.log("** Done!");
+}
 function testCompileAvailability(){
   console.log("** Compile Availability");
   for(const v of readdirSync("./test")){
@@ -22,4 +35,5 @@ function testCompileAvailability(){
   }
   console.log("** Done!");
 }
+testTimeline();
 testCompileAvailability();

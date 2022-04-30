@@ -54,6 +54,7 @@ import { writeFileSync } from "fs";
 import { Sorrygle } from "sorrygle";
 
 console.log(Sorrygle.parse("cege[c^c]~~~")); // This prints the AST of the input.
+console.log(Sorrygle.getTimeline("cege[c^c]~~~")); // This prints the timeline of the input.
 writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 ```
 or
@@ -62,6 +63,7 @@ const { writeFileSync } = require("fs");
 const { Sorrygle } = require("sorrygle");
 
 console.log(Sorrygle.parse("cege[c^c]~~~")); // This prints the AST of the input.
+console.log(Sorrygle.getTimeline("cege[c^c]~~~")); // This prints the timeline of the input.
 writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 ```
 3. Open `output.mid`
