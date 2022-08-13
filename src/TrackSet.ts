@@ -261,13 +261,16 @@ export class TrackSet{
       }else{
         const firstChildLastEvent = this.children[0].events.at(-1);
 
-        if(firstChildLastEvent?.type === "note" && firstChildLastEvent.options.arpeggio) for(const v of this.children){
-          const childNote = v?.events.at(-1);
-  
-          if(childNote?.type === "note" && childNote.options.arpeggio){
-            childNote.options.duration.push(duration);
-            v.position += R;
+        if(firstChildLastEvent?.type === "note" && firstChildLastEvent.options.arpeggio){
+          for(const v of this.children){
+            const childNote = v?.events.at(-1);
+    
+            if(childNote?.type === "note" && childNote.options.arpeggio){
+              childNote.options.duration.push(duration);
+              v.position += R;
+            }
           }
+          return this.rest(R);
         }else throw new SemanticError(l, "Malformed tie");
       }
     }
