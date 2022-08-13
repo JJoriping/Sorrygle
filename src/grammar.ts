@@ -255,7 +255,7 @@ const grammar: Grammar = {
     {"name": "Repetition", "symbols": ["Repetition$string$4"], "postprocess": 
         (d, l) => ({ l, type: "volta", value: 2 })
         },
-    {"name": "rangeType", "symbols": [/[v^357s]/], "postprocess": id},
+    {"name": "rangeType", "symbols": [/[v^357s:|]/], "postprocess": id},
     {"name": "diacriticType", "symbols": [/[.~!t]/], "postprocess": id},
     {"name": "notePrefix", "symbols": [/[v^]/], "postprocess": id},
     {"name": "noteSuffix", "symbols": [/[-+]/], "postprocess": id},

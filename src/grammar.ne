@@ -125,7 +125,7 @@ Repetition          -> "|:" {%
 %} | "/2" {%
   (d, l) => ({ l, type: "volta", value: 2 })
 %}
-rangeType           -> [v^357s] {% id %}
+rangeType           -> [v^357s:|] {% id %}
 diacriticType       -> [.~!t] {% id %}
 notePrefix          -> [v^] {% id %}
 noteSuffix          -> [-+] {% id %}

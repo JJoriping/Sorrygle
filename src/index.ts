@@ -601,6 +601,12 @@ export class Sorrygle{
         target.setController(ControllerType.SUSTAIN_PEDAL, 0);
         return R;
       }
+      case ":": return target.wrapTuplet(range.l, 4, () => (
+        this.parseStackables(range.value, modifiers, target)
+      ));
+      case "|": return target.wrapTuplet(range.l, 1, () => (
+        this.parseStackables(range.value, modifiers, target)
+      ));
       default: throw new SemanticError(range.l, `Unhandled range key: ${range.key}`);
     }
     return this.parseStackables(range.value, [ ...modifiers, modifier ], target);

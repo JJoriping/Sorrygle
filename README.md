@@ -104,6 +104,8 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `(5cdefg)`       | Quintuplet            | Set the length of each note to 2/5 of the current quantization.
 | `(7cdefgab)`     | Septuplet             | Set the length of each note to 2/7 of the current quantization.
 | `(scdef)`        | Ranged sustain pedal  | Same as `(s=127)cdef(s=0)`.
+| `(:ceg)`         | Ranged sublength      | Same as `(q=16)ceg(q=8)` in `(q=8)`. (*quadruplet*)
+| `(\|ceg)`        | Ranged superlength    | Same as `(q=4)ceg(q=8)` in `(q=8)`. (*uni-tuplet*)
 | `[>ga]b`         | Appoggiatura          | Treat all notes in the bracket as appoggiaturas.
 | `[[c~~~\|efga]]` | Parallelization       | Play all notes sequentially in each section at once.
 | `<.c>`           | Staccato              | Play the note shortly (precisely `T8`).
