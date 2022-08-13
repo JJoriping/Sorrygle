@@ -140,7 +140,9 @@ export class Sorrygle{
     }catch(e){
       Sorrygle.prettifyError(preprocessedData, e);
     }
-    let bpm = 120;
+    const bpmTimeline:[from:number, value:number][] = [
+      [ 0, 120 ]
+    ];
 
     for(const v of sorrygle.tracks){
       tracks.push(v);
@@ -149,21 +151,30 @@ export class Sorrygle{
       }
     }
     for(const v of tracks){
-      let position = 0;
-
       for(const w of v.events){
         switch(w.type){
           case "bpm":
-            bpm = w.value;
+            bpmTimeline.push([ w.position, w.value ]);
             break;
+        }
+      }
+    }
+    for(const v of tracks){
+      let position = 0;
+      let tick = 0;
+
+      for(const w of v.events){
+        switch(w.type){
           case "note":{
-            position += getTickDuration(w.options.wait) / bpm * TICK_TO_MS;
+            position += getDuration(tick, w.options.wait);
+            tick += getTickDuration(w.options.wait);
 
             const key = getActualIndex(w.l);
-            const duration = getTickDuration(w.options.duration) / bpm * TICK_TO_MS;
-            
+            const duration = getDuration(tick, w.options.duration);
+
             timeline[key] ??= [];
             timeline[key].push([ position, position += duration ]);
+            tick += getTickDuration(w.options.duration);
           } break;
         }
       }
@@ -186,6 +197,30 @@ export class Sorrygle{
       entity ??= commentMap[commentMapMaxIndex];
 
       return actualIndexCache[index] = entity[0] + entity[2] + index - entity[1];
+    }
+    function getDuration(startTick:number, data:MIDI.Duration[]):number{
+      let left = getTickDuration(data);
+      let R = 0;
+
+      if(!left) return R;
+      for(let i = 0; i < bpmTimeline.length; i++){
+        const [ , bpm ] = bpmTimeline[i];
+        const next = bpmTimeline[i + 1];
+        let length:number;
+
+        if(next){
+          const gap = next[0] - startTick;
+
+          if(gap <= 0) continue;
+          length = Math.min(gap, left);
+        }else{
+          length = left;
+        }
+        R += length / bpm * TICK_TO_MS;
+        left -= length;
+        if(left <= 0) break;
+      }
+      return R;
     }
   }
 
@@ -602,7 +637,7 @@ export class Sorrygle{
               this.track.wrapGlobalConfiguration(v.l, this.globalConfiguration, track => {
                 track.setTempo(value);
               });
-              this.track.events.push({ type: "bpm", value });
+              this.track.setBPM(value);
             } break;
             case "time-sig":{
               const [ n, d ] = v.value.split('/');

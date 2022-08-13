@@ -59,6 +59,7 @@ export class TrackSet{
     'value': number
   }|{
     'type': "bpm",
+    'position': number,
     'value': number
   }>;
   public readonly children:TrackSet[];
@@ -278,6 +279,10 @@ export class TrackSet{
   }
   public setInstrument(program:number, bank:number = 0):this{
     this.events.push({ type: "program", program, bank });
+    return this;
+  }
+  public setBPM(value:number):this{
+    this.events.push({ type: "bpm", position: this.position, value });
     return this;
   }
   public wrapGlobalConfiguration(l:number, data:GlobalConfiguration, callback:(track:MIDI.Track) => void):this{

@@ -4,6 +4,7 @@ const { Sorrygle } = require("..");
 function testTimeline(){
   console.log("** Timeline");
   
+  Sorrygle.getTimeline("((bpm=60)) cd_ ((bpm=120)) __gab^c~~~");
   if(JSON.stringify(Sorrygle.getTimeline([
     "/= My Song =/",
     "",
