@@ -161,6 +161,7 @@ export class TrackSet{
       
       if(calibration){
         if(this.rests.length) this.rest(calibration);
+        else if(!this.children[0]) this.rest(calibration);
         else this.tie(set.l, calibration);
       }
     }

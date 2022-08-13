@@ -4,14 +4,13 @@ const { Sorrygle } = require("..");
 function testTimeline(){
   console.log("** Timeline");
   
-  Sorrygle.getTimeline("((bpm=60)) cd_ ((bpm=120)) __gab^c~~~");
   if(JSON.stringify(Sorrygle.getTimeline([
     "/= My Song =/",
     "",
     "Hello =/ #1 (q=8) c_efgab[c^c]~~~ /= How are you?",
     "#2 (o=2) [[ cdef | ^cbag ]] ((bpm=150)) |: gab^c~~~ :| /= Cool",
     "/= Good bye =/"
-  ].join('\n'))) !== "[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[0,250]],null,[[500,750]],[[750,1000]],[[1000,1250]],[[1250,1500]],[[1500,1750]],[[1750,2750]],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[0,100]],[[100,200]],[[200,300]],[[300,400]],null,null,null,[[0,100]],null,[[100,200]],[[200,300]],[[300,400]],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[400,500],[1100,1200]],[[500,600],[1200,1300]],[[600,700],[1300,1400]],[[700,1100],[1400,1800]]]"){
+  ].join('\n'))) !== "[null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[0,250]],null,[[500,700]],[[700,900]],[[900,1100]],[[1100,1300]],[[1300,1500]],[[1500,2300]],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[0,125]],[[125,250]],[[250,375]],[[375,500]],null,null,null,[[0,125]],null,[[125,250]],[[250,375]],[[375,500]],null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,[[500,600],[1200,1300]],[[600,700],[1300,1400]],[[700,800],[1400,1500]],[[800,1200],[1500,1900]]]"){
     console.error("*    \x1B[33mError\x1B[0m: Incorrect result");
     process.exit(1);
   }
