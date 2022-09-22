@@ -1,7 +1,16 @@
 # Sorrygle
 Text-based MIDI-writing language and its compiler
 
-🔗 [Web demo](https://sorry.daldal.so/sorrygle) available in Korean
+<a href="https://www.npmjs.com/package/sorrygle">
+  <img alt="npm" src="https://img.shields.io/npm/v/sorrygle">
+  <img alt="npm" src="https://img.shields.io/npm/dw/sorrygle">
+</a>
+<a href="https://discord.gg/daldalso">
+  <img alt="Discord" src="https://img.shields.io/discord/809809541385682964?logo=discord">
+</a>
+<a href="https://sorry.daldal.so/sorrygle">
+  <img alt="Website" src="https://img.shields.io/website?down_message=unavailable&label=demo&up_message=available&url=https%3A%2F%2Fsorry.daldal.so%2Fsorrygle">
+</a>
 
 ## Introduction
 I often chat with my friends via Discord.
