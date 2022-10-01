@@ -1,4 +1,6 @@
 import MIDI = require("midi-writer-js");
+import { AST } from "./AST";
+import { TrackSet } from "./TrackSet";
 
 const REGEXP_PITCH = /^([A-G]#?)(\d+)$/;
 const NOTE_SEQUENCES = [
@@ -51,4 +53,10 @@ export function transpose(pitch:MIDI.Pitch|`x${number}/${number}`, amount:number
 }
 export function toTick(value:number):MIDI.Duration{
   return `T${value}` as any;
+}
+export function setSforzandoDurations(v:AST.Diacritic, durations:Map<number, number>, target:TrackSet){
+  for(const w of v.value) switch(w?.type){
+    case "key": case "chord": case "diacritic":
+      durations.set(w.l, getTickDuration(target.quantization));
+  }
 }

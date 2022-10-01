@@ -4,7 +4,7 @@ import { AST } from "./AST";
 import grammar from "./grammar";
 import SemanticError from "./SemanticError";
 import { ControllerType, GlobalConfiguration, MIDIOptionModifier, TrackSet } from "./TrackSet";
-import { getTickDuration, toTick, transpose } from "./utils";
+import { getTickDuration, toTick, transpose, setSforzandoDurations } from "./utils";
 
 const MAX_GROUP_REFERENCES = 1000;
 const TICK_TO_MS = 60000 / 128;
@@ -295,7 +295,7 @@ export class Sorrygle{
         let current:AST.RestrictedNotation|undefined;
         let modifier:MIDIOptionModifier;
 
-        if(v.name === "." || v.name === "~" || v.name === "t" || v.name === "!") for(const w of v.value) switch(w?.type){
+        if(v.name === "." || v.name === "~" || v.name === "t") for(const w of v.value) switch(w?.type){
           case "range":
             this.parseStackables(w.value, [ ...modifiers, (o, _, __, l) => {
               durations.set(l, getTickDuration(o.duration));
@@ -304,7 +304,8 @@ export class Sorrygle{
             break;
           case "key": case "chord": case "diacritic":
             current = w;
-            durations.set(w.l, getTickDuration(target.quantization));
+            if(w.type === "diacritic" && w.name === "!") setSforzandoDurations(w, durations, target);
+            else durations.set(w.l, getTickDuration(target.quantization));
             innerList.push(w);
             break;
           case "rest":
