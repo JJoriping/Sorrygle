@@ -295,7 +295,7 @@ export class Sorrygle{
         let current:AST.RestrictedNotation|undefined;
         let modifier:MIDIOptionModifier;
 
-        if(v.name === "." || v.name === "~" || v.name === "t") for(const w of v.value) switch(w?.type){
+        if(v.name === "." || v.name === "~" || v.name === "t" || v.name === "!") for(const w of v.value) switch(w?.type){
           case "range":
             this.parseStackables(w.value, [ ...modifiers, (o, _, __, l) => {
               durations.set(l, getTickDuration(o.duration));
