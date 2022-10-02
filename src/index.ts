@@ -295,14 +295,21 @@ export class Sorrygle{
         let current:AST.RestrictedNotation|undefined;
         let modifier:MIDIOptionModifier;
 
-        if(v.name === "." || v.name === "~" || v.name === "t" || v.name === "!") for(const w of v.value) switch(w?.type){
+        if(v.name === "." || v.name === "~" || v.name === "t") for(const w of v.value) switch(w?.type){
           case "range":
             this.parseStackables(w.value, [ ...modifiers, (o, _, __, l) => {
               durations.set(l, getTickDuration(o.duration));
             }], this.track.dummy);
             innerList.push(w);
             break;
-          case "key": case "chord": case "diacritic":
+          case "diacritic":
+            // NOTE Diacritic should be treated like `range` since it has variable length.
+            this.parseDiacriticComponents(w.value, [ ...modifiers, (o, _, __, l) => {
+              durations.set(l, getTickDuration(o.duration));
+            }], this.track.dummy);
+            innerList.push(w);
+            break;
+          case "key": case "chord":
             current = w;
             durations.set(w.l, getTickDuration(target.quantization));
             innerList.push(w);

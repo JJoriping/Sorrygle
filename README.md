@@ -5,7 +5,7 @@ Text-based MIDI-writing language and its compiler
   <img alt="npm" src="https://img.shields.io/npm/v/sorrygle">
   <img alt="npm" src="https://img.shields.io/npm/dw/sorrygle">
 </a>
-<a href="https://discord.gg/daldalso">
+<a href="https://discord.gg/p7QGXyzHnt">
   <img alt="Discord" src="https://img.shields.io/discord/809809541385682964?logo=discord">
 </a>
 <a href="https://sorry.daldal.so/sorrygle">
