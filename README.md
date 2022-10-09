@@ -100,8 +100,8 @@ writeFileSync("./output.mid", Sorrygle.compile("cege[c^c]~~~"));
 | `CDFGA`          | Sharp note            | Play C#, D#, F#, G#, A# in sequence. You can use `돗렛팟솘랏` instead.
 | `렢밒솚랖싶`     | Flat note             | Play Db, Eb, Gb, Ab, Bb in sequence.
 | `_`              | Rest                  | Keep silent. You can use `ㅇ` instead.
-| `+`              | Semitone up           | Increate the pitch of the preceding note by one semitone.
-| `-`              | Semitone down         | Decrease the pitch of the preceding note by one semitone.
+| `+`              | Semitone up           | Increase the pitch of the preceding note by one semitone. (i.e., `c+` = `C`)
+| `-`              | Semitone down         | Decrease the pitch of the preceding note by one semitone. (i.e., `c-` = `vb`)
 | `~`              | Tie                   | Increase the length of the preceding note. You can use `ㅡ` instead.
 | `[ceg]`          | Chord                 | Play C, E, G at once.
 | `[\|ceg]`        | Arpeggio              | Play C, E, G rapidly in sequence.
