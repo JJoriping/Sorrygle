@@ -12,6 +12,9 @@ Text-based MIDI-writing language and its compiler
   <img alt="Website" src="https://img.shields.io/website?down_message=unavailable&label=demo&up_message=available&url=https%3A%2F%2Fsorry.daldal.so%2Fsorrygle">
 </a>
 
+## Demo
+[https://sorry.daldal.so/sorrygle](https://sorry.daldal.so/sorrygle)
+
 ## Introduction
 I often chat with my friends via Discord.
 However, it becomes cumbersome when I want to share a bundle of melody.
