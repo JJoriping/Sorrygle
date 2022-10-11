@@ -48,6 +48,9 @@ That's why I've defined a new language that can be converted into MIDI files.
 
 Now I'm happy 😊.
 
+## Demo
+[https://sorry.daldal.so/sorrygle](https://sorry.daldal.so/sorrygle)
+
 ## Getting Started
 ### CLI
 1. `npm -g install sorrygle`
