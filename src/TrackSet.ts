@@ -165,7 +165,7 @@ export class TrackSet{
         else this.tie(set.l, calibration);
       }
     }
-    return this.addRaw(set.l, options);
+    return this.addRaw(set.l, options) + getTickDuration(this.rests);
   }
   public addPitchBend(position:number|null, value:number):this{
     this.pitchBend.push([ position ?? this.position, value ]);
@@ -173,7 +173,7 @@ export class TrackSet{
   }
   public addRaw(l:number, options:MIDIArrayOptions):number{
     if(options.ignore) return 0;
-    const R = getTickDuration(options.duration) + getTickDuration(this.rests);
+    const R = getTickDuration(options.duration);
 
     if(options.pitch.find(v => v.startsWith("x"))) throw Error("Unresolved x");
     this.events.push({ type: "note", l, options });
