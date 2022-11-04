@@ -173,7 +173,7 @@ export class TrackSet{
   }
   public addRaw(l:number, options:MIDIArrayOptions):number{
     if(options.ignore) return 0;
-    const R = getTickDuration(options.duration);
+    const R = getTickDuration(options.duration) + getTickDuration(this.rests);
 
     if(options.pitch.find(v => v.startsWith("x"))) throw Error("Unresolved x");
     this.events.push({ type: "note", l, options });
