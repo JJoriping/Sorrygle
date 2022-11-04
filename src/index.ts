@@ -14,6 +14,7 @@ const STACCATO_LENGTH = 16;
 const GRACE_LENGTH = 8;
 const TRILL_INTERVAL = 16;
 const ARPEGGIO_INTERVAL = 8;
+const ARPEGGIO_IN_STACCATO_INTERVAL = 4;
 const REGEXP_UDR_X = /^x([-\d]+)\/([-\d]+)$/;
 const REGEXP_ALL_COMMENT = /(.*)=\/|\/=(.*)/mg;
 const REGEXP_LEFT_COMMENT = /^(.*)=\//;
@@ -296,6 +297,33 @@ export class Sorrygle{
         let modifier:MIDIOptionModifier;
 
         if(v.name === "." || v.name === "~" || v.name === "t") for(const w of v.value) switch(w?.type){
+          case "chord": if(w.arpeggio){
+            switch(v.name){
+              case ".": R += this.parseStackables([{
+                l: w.l,
+                type: "parallelization",
+                values: w.value.map((g, i) => {
+                  const rest = i * ARPEGGIO_IN_STACCATO_INTERVAL;
+                  const length = STACCATO_LENGTH - rest;
+                  const R:AST.Stackable[] = [
+                    { l: g.l, type: "local-configuration", key: "q", value: toTick(length) },
+                    { l: g.l, type: "notation", value: g },
+                    { l: g.l, type: "local-configuration", key: "q", value: toTick(STACCATO_LENGTH) }
+                  ];
+                  if(rest) R.unshift(
+                    { l: g.l, type: "local-configuration", key: "q", value: toTick(rest) },
+                    { l: g.l, type: "rest" }
+                  );
+                  return R;
+                })
+              }], [ ...modifiers, o => o.arpeggio = true ], target);
+              break;
+              case "~":
+                // ??
+              case "t":
+                // ??
+            }
+          } break;
           case "range":
             this.parseStackables(w.value, [ ...modifiers, (o, _, __, l) => {
               durations.set(l, getTickDuration(o.duration));
