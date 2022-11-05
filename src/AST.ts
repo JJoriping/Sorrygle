@@ -42,11 +42,7 @@ export namespace AST{
     'type': "group-declaration",
     'key': number,
     'value': Stackable[]
-  }|GroupReference|{
-    'l': number,
-    'type': "parallelization",
-    'values': Stackable[][]
-  }|{
+  }|GroupReference|Parallelization|{
     'l': number,
     'type': "emoji-reference",
     'key': string
@@ -96,7 +92,12 @@ export namespace AST{
     'name': "."|"~"|"!"|"t",
     'value': DiacriticComponent[]
   };
-  export type DiacriticComponent =  GroupReference|LocalConfiguration|Range|RestrictedNotation|Rest|null;
+  export type Parallelization = {
+    'l': number,
+    'type': "parallelization",
+    'values': Stackable[][]
+  };
+  export type DiacriticComponent =  GroupReference|LocalConfiguration|Range|RestrictedNotation|Rest|Parallelization|null;
   export type KeySet = {
     'l': number,
     'type': "key",
@@ -108,7 +109,7 @@ export namespace AST{
     'l': number,
     'type': "appoggiatura",
     'value': Array<KeySet|ChordSet|Range|null>
-  }
+  };
   export type ChordSet = {
     'l': number,
     'type': "chord",

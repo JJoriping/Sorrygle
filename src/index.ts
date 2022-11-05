@@ -310,34 +310,30 @@ export class Sorrygle{
             }], this.track.dummy);
             innerList.push(w);
             break;
-          case "chord": if(w.arpeggio){
-            switch(v.name){
-              case ".": R += this.parseStackables([{
-                  l: w.l,
-                  type: "parallelization",
-                  values: w.value.map((g, i) => {
-                    const rest = i * ARPEGGIO_IN_STACCATO_INTERVAL;
-                    const length = STACCATO_LENGTH - rest;
-                    const R:AST.Stackable[] = [
-                      { l: g.l, type: "local-configuration", key: "q", value: toTick(length) },
-                      { l: g.l, type: "notation", value: g },
-                      { l: g.l, type: "local-configuration", key: "q", value: toTick(getTickDuration(target.quantization) - STACCATO_LENGTH) },
-                      { l: g.l, type: "rest" },
-                      { l: g.l, type: "local-configuration", key: "q", value: toTick(STACCATO_LENGTH) },
-                    ];
-                    if(rest) R.unshift(
-                      { l: g.l, type: "local-configuration", key: "q", value: toTick(rest) },
-                      { l: g.l, type: "rest" }
-                    );
-                    return R;
-                  })
-                }], [ ...modifiers, o => o.arpeggio = true ], target);
-                break;
-              case "~":
-                // ??
-              case "t":
-                // ??
-            } break;
+          case "chord": if(w.arpeggio && v.name === "."){
+            current = w;
+            innerList.push({
+              l: w.l,
+              type: "parallelization",
+              values: w.value.map((g, i) => {
+                const rest = i * ARPEGGIO_IN_STACCATO_INTERVAL;
+                const length = STACCATO_LENGTH - rest;
+                const R:AST.Stackable[] = [
+                  { l: g.l, type: "local-configuration", key: "q", value: toTick(length) },
+                  { l: g.l, type: "notation", value: g },
+                  { l: g.l, type: "local-configuration", key: "q", value: toTick(getTickDuration(target.quantization) - rest - length) },
+                  { l: g.l, type: "rest" },
+                  { l: g.l, type: "local-configuration", key: "q", value: toTick(STACCATO_LENGTH) },
+                ];
+                if(rest) R.unshift(
+                  { l: g.l, type: "local-configuration", key: "q", value: toTick(rest) },
+                  { l: g.l, type: "rest" }
+                );
+                durations.set(g.l, STACCATO_LENGTH);
+                return R;
+              })
+            });
+            break;
           }
           case "key":
             current = w;
@@ -469,6 +465,10 @@ export class Sorrygle{
       case "group-reference": case "local-configuration": case "range":
         R += this.parseStackables([ v ], modifiers, target);
         break;
+      case "parallelization":{
+        R += this.parseStackables([ v ], [ ...modifiers, o => o.arpeggio = true ], target);
+        break;
+      }
     }
     return R;
   }
