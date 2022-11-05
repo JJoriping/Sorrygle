@@ -336,7 +336,7 @@ export class Sorrygle{
               return;
             }
             o.duration = [ toTick(STACCATO_LENGTH) ];
-            caller.rest(originalLength - STACCATO_LENGTH, true);
+            caller.rest(originalLength - STACCATO_LENGTH, true, true);
           }; break;
           case "~": modifier = (o, _, __, l) => o.duration = [
             // NOTE This may cause a synchronization error if fermataLength is not an integer.

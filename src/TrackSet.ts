@@ -70,6 +70,7 @@ export class TrackSet{
   public transpose:number;
   public velocity:number;
   private rests:MIDI.Duration[];
+  private restsAfterStaccato:MIDI.Duration[];
   private position:number;
   private snapshot:AST.Node[];
   private repeatShapshot?:AST.Node[];
@@ -98,6 +99,7 @@ export class TrackSet{
     this.velocity = 80;
     this.children = [];
     this.rests = [];
+    this.restsAfterStaccato = [];
     this.position = 0;
     this.pitchBend = [];
     this.snapshot = [];
@@ -152,6 +154,7 @@ export class TrackSet{
     };
     // NOTE Modifiers may rest.
     this.rests = [];
+    this.restsAfterStaccato = [];
     for(let i = modifiers.length - 1; i >= 0; i--){
       modifiers[i](options, this, this.position, set.l);
     }
@@ -165,7 +168,7 @@ export class TrackSet{
         else this.tie(set.l, calibration);
       }
     }
-    return this.addRaw(set.l, options) + getTickDuration(this.rests);
+    return this.addRaw(set.l, options) + getTickDuration(this.restsAfterStaccato);
   }
   public addPitchBend(position:number|null, value:number):this{
     this.pitchBend.push([ position ?? this.position, value ]);
@@ -235,13 +238,14 @@ export class TrackSet{
     this.repeatShapshot = undefined;
     return R;
   }
-  public rest(length?:number, ignoreTuplet?:boolean):number{
+  public rest(length?:number, ignoreTuplet?:boolean, afterStaccato?:boolean):number{
     if(length === 0) return 0;
     let actualLength = length ?? getTickDuration(this.quantization);
     if(!ignoreTuplet) actualLength += this.checkTuplet(actualLength);
     const duration = toTick(actualLength);
 
     this.rests.push(duration);
+    if(afterStaccato) this.restsAfterStaccato.push(duration);
     const R = getTickDuration(duration);
     this.position += R;
     return R;
