@@ -42,15 +42,16 @@ export namespace AST{
     'type': "group-declaration",
     'key': number,
     'value': Stackable[]
-  }|GroupReference|{
-    'l': number,
-    'type': "parallelization",
-    'values': Stackable[][]
-  }|{
+  }|GroupReference|Parallelization|{
     'l': number,
     'type': "emoji-reference",
     'key': string
   }|Rest|null;
+  export type Parallelization = {
+    'l': number,
+    'type': "parallelization",
+    'values': Stackable[][]
+  };
   export type GroupReference = {
     'l': number,
     'type': "group-reference",

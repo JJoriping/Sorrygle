@@ -229,6 +229,7 @@ export class Sorrygle{
   private parser:Parser;
   private globalConfiguration:GlobalConfiguration;
   private tracks:TrackSet[];
+  private durations:Map<number, number>;
   private groups:Map<number, AST.Stackable[]>;
   private emojis:Map<string, AST.LocalConfiguration>;
   private udrs:Map<string, AST.Stackable[]>;
@@ -255,35 +256,26 @@ export class Sorrygle{
       fermataLength: 2
     };
     this.tracks = [];
+    this.durations = new Map();
     this.groups = new Map();
     this.emojis = new Map();
     this.udrs = new Map();
   }
-  private parseRestrictedNotations(list:Array<AST.RestrictedNotation|AST.Rest>, modifiers:MIDIOptionModifier[] = [], target:TrackSet = this.track):number{
+  private parseRestrictedNotations(
+    list:Array<AST.RestrictedNotation|AST.Rest>,
+    modifiers:MIDIOptionModifier[] = [],
+    target:TrackSet = this.track
+  ):number{
+    const standardDuration = getTickDuration(target.quantization);
     let R = 0;
 
     for(const v of list) switch(v.type){
       case "chord": if(v.arpeggio){
-        const originalQuantization = getTickDuration(target.quantization);
-
-        R += this.parseStackables([{
-          l: v.l,
-          type: "parallelization",
-          values: v.value.map((w, i) => {
-            const rest = i * ARPEGGIO_INTERVAL;
-            const length = originalQuantization - rest;
-            const R:AST.Stackable[] = [
-              { l: w.l, type: "local-configuration", key: "q", value: toTick(length) },
-              { l: w.l, type: "notation", value: w },
-              { l: w.l, type: "local-configuration", key: "q", value: toTick(originalQuantization) }
-            ];
-            if(rest) R.unshift(
-              { l: w.l, type: "local-configuration", key: "q", value: toTick(rest) },
-              { l: w.l, type: "rest" }
-            );
-            return R;
-          })
-        }], [ ...modifiers, o => o.arpeggio = true ], target);
+        R += this.parseStackables(
+          [ this.parallelize(v, standardDuration) ],
+          [ ...modifiers, o => o.arpeggio = true ],
+          target
+        );
         break;
       }
       case "key": R += target.add(v, modifiers); break;
@@ -291,27 +283,34 @@ export class Sorrygle{
       case "tie": R += target.tie(v.l); break;
       case "diacritic":{
         const innerList:Array<AST.DiacriticComponent|AST.Decimals|AST.Range> = [];
-        const durations = new Map<number, number>();
         let current:AST.RestrictedNotation|undefined;
         let modifier:MIDIOptionModifier;
 
         if(v.name === "." || v.name === "~" || v.name === "t") for(const w of v.value) switch(w?.type){
           case "range":
             this.parseStackables(w.value, [ ...modifiers, (o, _, __, l) => {
-              durations.set(l, getTickDuration(o.duration));
+              this.durations.set(l, getTickDuration(o.duration));
             }], this.track.dummy);
             innerList.push(w);
             break;
           case "diacritic":
             // NOTE Diacritic should be treated like `range` since it has variable length.
             this.parseDiacriticComponents(w.value, [ ...modifiers, (o, _, __, l) => {
-              durations.set(l, getTickDuration(o.duration));
+              this.durations.set(l, getTickDuration(o.duration));
             }], this.track.dummy);
             innerList.push(w);
             break;
-          case "key": case "chord":
+          case "chord":
+            if(w.arpeggio) this.parseStackables(
+              [ this.parallelize(w, standardDuration) ],
+              [ ...modifiers, (o, _, __, l) => {
+                this.durations.set(l, getTickDuration(o.duration));
+              }],
+              this.track.dummy
+            );
+          case "key":
             current = w;
-            durations.set(w.l, getTickDuration(target.quantization));
+            this.durations.set(w.l, standardDuration);
             innerList.push(w);
             break;
           case "rest":
@@ -320,17 +319,23 @@ export class Sorrygle{
             break;
           case "tie":{
             if(!current) throw new SemanticError(w.l, "Malformed tie");
-            const data = durations.get(current.l);
-            if(data === undefined) throw Error("Unknown notation");
 
-            durations.set(current.l, data + getTickDuration(target.quantization));
+            const prev = this.durations.get(current.l);
+            if(prev === undefined) throw Error(`Unknown notation: ${current.l}`);
+            this.durations.set(current.l, prev + standardDuration);
+
+            if(current.type === "chord" && current.arpeggio) for(const w of current.value){
+              const prev = this.durations.get(w.l);
+              if(prev === undefined) throw Error(`Unknown notation: ${w.l}`);
+              this.durations.set(w.l, prev + standardDuration);
+            }
           } break;
         }else{
           innerList.push(...v.value);
         }
         switch(v.name){
           case ".": modifier = (o, caller, _, l) => {
-            const originalLength = durations.get(l)!;
+            const originalLength = this.durations.get(l)!;
 
             if(originalLength <= STACCATO_LENGTH){
               return;
@@ -340,11 +345,11 @@ export class Sorrygle{
           }; break;
           case "~": modifier = (o, _, __, l) => o.duration = [
             // NOTE This may cause a synchronization error if fermataLength is not an integer.
-            toTick(this.globalConfiguration.fermataLength * durations.get(l)!)
+            toTick(this.globalConfiguration.fermataLength * this.durations.get(l)!)
           ]; break;
           case "!": modifier = o => o.velocity = 100; break;
           case "t": modifier = (o, caller, position, l) => {
-            let length = durations.get(l)!;
+            let length = this.durations.get(l)!;
             let count = 0;
 
             while(length >= TRILL_INTERVAL){
@@ -429,7 +434,11 @@ export class Sorrygle{
     }
     return R;
   }
-  private parseDiacriticComponents(list:Array<AST.DiacriticComponent|AST.Decimals>, modifiers:MIDIOptionModifier[] = [], target:TrackSet = this.track):number{
+  private parseDiacriticComponents(
+    list:Array<AST.DiacriticComponent|AST.Decimals>,
+    modifiers:MIDIOptionModifier[] = [],
+    target:TrackSet = this.track
+  ):number{
     let R = 0;
 
     for(const v of list) switch(v?.type){
@@ -521,7 +530,7 @@ export class Sorrygle{
             const r = this.parseStackables(v.values[i], modifiers, trackSet) + trackSet.pendingRestLength;
 
             if(length !== undefined && r !== length){
-              throw new SemanticError(v.l, "Parallelization length mismatch");
+              throw new SemanticError(v.l, `Parallelization length mismatch (${length} ≠ ${r})`);
             }
             length = r;
           }
@@ -705,6 +714,28 @@ export class Sorrygle{
       }
       this.track.addSnapshot(v);
     }
+  }
+  private parallelize(chord:AST.ChordSet, defaultDuration:number):AST.Parallelization{
+    const duration = this.durations.get(chord.l) ?? defaultDuration;
+    
+    return {
+      l: chord.l,
+      type: "parallelization",
+      values: chord.value.map((v, i) => {
+        const rest = i * ARPEGGIO_INTERVAL;
+        const length = duration - rest;
+        const R:AST.Stackable[] = [
+          { l: v.l, type: "local-configuration", key: "q", value: toTick(length) },
+          { l: v.l, type: "notation", value: v },
+          { l: v.l, type: "local-configuration", key: "q", value: toTick(duration) }
+        ];
+        if(rest) R.unshift(
+          { l: v.l, type: "local-configuration", key: "q", value: toTick(rest) },
+          { l: v.l, type: "rest" }
+        );
+        return R;
+      })
+    };
   }
 }
 {
