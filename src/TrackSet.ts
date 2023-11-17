@@ -87,6 +87,9 @@ export class TrackSet{
   public get isEmpty():boolean{
     return this.events.length < 1 && this.children.every(v => v.events.length < 1);
   }
+  public get pendingRestLength():number{
+    return getTickDuration(this.rests);
+  }
 
   constructor(channel:number){
     this.channel = channel;

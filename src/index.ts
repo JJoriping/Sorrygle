@@ -517,7 +517,8 @@ export class Sorrygle{
           let length:number|undefined;
 
           for(let i = 0; i < v.values.length; i++){
-            const r = this.parseStackables(v.values[i], modifiers, target.childAt(v.l, i));
+            const trackSet = target.childAt(v.l, i);
+            const r = this.parseStackables(v.values[i], modifiers, trackSet) + trackSet.pendingRestLength;
 
             if(length !== undefined && r !== length){
               throw new SemanticError(v.l, "Parallelization length mismatch");
