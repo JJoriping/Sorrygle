@@ -314,7 +314,7 @@ export class TrackSet{
       error: 0
     };
     R = callback();
-    if(this.tuplet.error > 0){
+    if(isFinite(this.tuplet.stack) && this.tuplet.error > 0){
       R += this.tie(l, this.tuplet.error);
     }
     this.quantization = originalQuantization;

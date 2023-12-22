@@ -7,8 +7,7 @@
       "name": "Launch Program",
       "program": "${workspaceFolder}/dist/cli.js",
       "args": [
-        "--file", "${workspaceFolder}/test/test.srg",
-        "--out", "${workspaceFolder}/test/test.mid"
+        "--file", "${workspaceFolder}/test/issue-15.srg"
       ]
     },
     {
