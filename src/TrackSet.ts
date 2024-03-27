@@ -69,8 +69,8 @@ export class TrackSet{
   public quantization:MIDI.Duration;
   public transpose:number;
   public velocity:number;
+  public position:number;
   private rests:MIDI.Duration[];
-  private position:number;
   private snapshot:AST.Node[];
   private repeatShapshot?:AST.Node[];
   private tuplet?:{

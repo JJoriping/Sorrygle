@@ -523,22 +523,25 @@ export class Sorrygle{
         case "rest": R += target.rest(); break;
         case "range": R += this.parseRange(v, modifiers, target); break;
         case "parallelization":{
-          let length:number|undefined;
-
+          const childList:[number, TrackSet][] = [];
           for(let i = 0; i < v.values.length; i++){
             const trackSet = target.childAt(v.l, i);
-            const r = this.parseStackables(v.values[i], modifiers, trackSet) + trackSet.pendingRestLength;
+            const prevPosition = trackSet.position;
+            this.parseStackables(v.values[i], modifiers, trackSet);
+            const r = trackSet.position - prevPosition;
 
-            if(length !== undefined && r !== length){
-              throw new SemanticError(v.l, `Parallelization length mismatch (${length} ≠ ${r})`);
-            }
-            length = r;
+            childList[i] = [ r, trackSet ];
           }
-          if(length === undefined){
+          const maxLength = Math.max(...childList.map(v => v[0]));
+          if(maxLength <= 0){
             throw Error("Unexpected length");
           }
-          target.rest(length, true);
-          R += length;
+          for(let i = 0; i < v.values.length; i++){
+            const gap = maxLength - childList[i][0];
+            if(!gap) continue;
+          }
+          target.rest(maxLength, true);
+          R += maxLength;
         } break;
         case "group-declaration":
           if(this.groups.has(v.key)) throw new SemanticError(v.l, `Already declared group: ${v.key}`);
